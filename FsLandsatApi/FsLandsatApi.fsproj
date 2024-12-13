@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="Errors.fs" />
+        <Compile Include="Options.fs" />
+        <Compile Include="Extensions.fs" />
+        <Compile Include="Models\Usgs\Scene.fs" />
+        <Compile Include="Json\Usgs\LoginToken.fs" />
+        <Compile Include="Json\Usgs\SceneSearch.fs" />
+        <Compile Include="Services\UsgsTokenService.fs" />
+        <Compile Include="Services\UsgsSceneService.fs" />
+        <Compile Include="Handlers\SceneHandler.fs" />
+        <Compile Include="Handlers\UserHandler.fs" />
+        <Compile Include="Handlers\UserTargetsHandler.fs" />
+        <Compile Include="Program.fs"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="FsToolkit.ErrorHandling" Version="5.0.0-beta001" />
+      <PackageReference Include="Giraffe" Version="7.0.2" />
+    </ItemGroup>
+
+</Project>
