@@ -2,6 +2,8 @@
 
     <PropertyGroup>
         <TargetFramework>net9.0</TargetFramework>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <IsPackable>false</IsPackable>
     </PropertyGroup>
 
     <ItemGroup>
@@ -9,19 +11,26 @@
         <Compile Include="Options.fs" />
         <Compile Include="Extensions.fs" />
         <Compile Include="Models\Usgs\Scene.fs" />
+        <Compile Include="Models\ApiResponse.fs" />
         <Compile Include="Json\Usgs\LoginToken.fs" />
         <Compile Include="Json\Usgs\SceneSearch.fs" />
         <Compile Include="Services\UsgsTokenService.fs" />
         <Compile Include="Services\UsgsSceneService.fs" />
+        <Compile Include="Middleware\RequestIdMiddleware.fs" />
         <Compile Include="Handlers\SceneHandler.fs" />
         <Compile Include="Handlers\UserHandler.fs" />
         <Compile Include="Handlers\UserTargetsHandler.fs" />
+        <Compile Include="Handlers\NotFoundHandler.fs" />
+        <Compile Include="Routing.fs" />
         <Compile Include="Program.fs"/>
     </ItemGroup>
 
     <ItemGroup>
       <PackageReference Include="FsToolkit.ErrorHandling" Version="5.0.0-beta001" />
       <PackageReference Include="Giraffe" Version="7.0.2" />
+      <PackageReference Include="Giraffe.OpenApi" Version="0.0.1" />
+      <PackageReference Include="Swashbuckle.AspNetCore" Version="7.2.0" />
+      <PackageReference Update="FSharp.Core" Version="9.0.100" />
     </ItemGroup>
 
 </Project>

@@ -22,3 +22,14 @@ and Metadata =
       FieldName: string
       DictionaryLink: string
       Value: Object }
+    
+
+type SimplifiedSceneData =
+    { BrowseName: string option
+      BrowsePath: string option
+      OverlayPath: string option
+      ThumbnailPath: string option
+      
+      EntityId: string
+      DisplayId: string
+      PublishDate: DateTimeOffset }

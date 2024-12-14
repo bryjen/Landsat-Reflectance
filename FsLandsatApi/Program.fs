@@ -1,81 +1,97 @@
-namespace FsLandsatApi
-
 open System
+open System.Net.Http
 open System.Net.Http.Headers
-open FsLandsatApi.Services
+open System.Text.Json
+open FsLandsatApi.Handlers.NotFoundHandler
 open FsLandsatApi.Services.UsgsSceneService
 open FsLandsatApi.Services.UsgsTokenService
+open Giraffe.EndpointRouting
 open Microsoft.AspNetCore.Builder
-open Microsoft.AspNetCore.Hosting
+open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Logging
 
 open Giraffe
-open Extensions
 
-module Program =
-    
-    let webApp =
-        choose [
-            route "/ping" >=> text "pong"
-            route "/" >=> text "Hello World!"
-        ]
-    
-    let configureApp (app: IApplicationBuilder) =
-        app.UseGiraffe webApp
-        
-    let configureServices (services: IServiceCollection) =
-        let provider = services.BuildServiceProvider()
-        let logger = provider.GetService<ILoggerFactory>().CreateLogger("ServiceConfiguration")
-        
-        
-        // Configure option types
-        let anyOptionInvalid = ref false
-        services.TryAddUsgsOptions(logger, anyOptionInvalid) |> ignore
-        
-        if anyOptionInvalid.Value then
-            failwith "Startup configuration failed. Could not initialize some options"
+open FsLandsatApi.Extensions
+
+// Need to create custom type that wraps around 'System.Text.JsonSerializer' cause the program just doesn't work for
+// some reason.
+type AppJsonSerializer() =
+    interface Json.ISerializer with
+        member this.SerializeToString<'T>(x: 'T) =
+            JsonSerializer.Serialize<'T>(x)
             
+        member this.SerializeToBytes<'T>(x: 'T) =
+            JsonSerializer.SerializeToUtf8Bytes<'T>(x)
             
-        // Configure http clients
-        services.AddHttpClient() |> ignore
+        member this.SerializeToStreamAsync<'T> (x: 'T) stream =
+            JsonSerializer.SerializeAsync(stream, x)
         
-        services.AddHttpClient("Usgs", fun httpClient ->
-            httpClient.BaseAddress <- Uri("https://m2m.cr.usgs.gov/api/api/json/stable/")
-            httpClient.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue("application/json")))
-        |> ignore
-        
-        services.AddTransient<UsgsTokenService>() |> ignore
-        services.AddTransient<UsgsSceneService>() |> ignore
+        member this.Deserialize<'T>(bytes: byte array): 'T =
+            JsonSerializer.Deserialize<'T>(bytes)
             
-        services.AddGiraffe |> ignore
-        ()
+        member this.Deserialize<'T>(json: string): 'T =
+            JsonSerializer.Deserialize<'T>(json)
+            
+        member this.DeserializeAsync(stream) =
+            JsonSerializer.DeserializeAsync(stream).AsTask()
+
+
+let configureApp (app: IApplicationBuilder) =
+    app.UseRouting()
+       .UseSwagger()
+       .UseSwaggerUI()
+       .UseGiraffe(FsLandsatApi.Routing.endpoints)
+       .UseGiraffe(notFoundHandler)
     
     
-    [<EntryPoint>]
-    let main args =
-        let builder = 
-            Host.CreateDefaultBuilder()
-                .ConfigureWebHostDefaults(
-                    fun webHostBuilder -> webHostBuilder.Configure(configureApp)
-                                                        .ConfigureServices(configureServices)
-                                                        |> ignore)
-        let app = builder.Build()
-        
-        let something = app.Services.GetRequiredService<UsgsSceneService>()
-        let somethingElse = something.GetScenes(14, 28, 10)
-        
-        match somethingElse with
-        | Ok sceneDatas ->
-            let sd = sceneDatas[0]
-            printfn $"{sd.BrowseInfos}"
-            printfn $"{sd.Metadata}"
-            ()
-        | Error errorValue ->
-            ()
-        
-        app.Run()
+    
+let configureServices (services: IServiceCollection) =
+    let provider = services.BuildServiceProvider()
+    let logger = provider.GetService<ILoggerFactory>().CreateLogger("ServiceConfiguration")
+    
+    
+    // Configure option types
+    let anyOptionInvalid = ref false
+    services.TryAddUsgsOptions(logger, anyOptionInvalid) |> ignore
+    
+    if anyOptionInvalid.Value then
+        failwith "Startup configuration failed. Could not initialize some options"
         
         
-        0 // Exit code
+    // Configure http clients
+    services.AddHttpClient() |> ignore
+    
+    services.AddHttpClient("Usgs", fun httpClient ->
+        httpClient.BaseAddress <- Uri("https://m2m.cr.usgs.gov/api/api/json/stable/")
+        httpClient.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue("application/json")))
+    |> ignore
+    
+    services.AddSingleton<UsgsTokenService>() |> ignore
+    services.AddTransient<UsgsSceneService>() |> ignore
+        
+    services.AddGiraffe |> ignore
+    services.AddSingleton<Json.ISerializer>(fun serviceProvider -> AppJsonSerializer() :> Json.ISerializer) |> ignore
+    
+    services.AddRouting() |> ignore
+    services.AddEndpointsApiExplorer() |> ignore
+    services.AddSwaggerGen() |> ignore
+    ()
+
+
+[<EntryPoint>]
+let main args =
+    let builder = WebApplication.CreateBuilder(args)
+    configureServices builder.Services
+    
+    let app = builder.Build()
+    
+    if app.Environment.IsDevelopment() then
+        app.UseDeveloperExceptionPage() |> ignore
+
+    configureApp app
+    app.Run()
+    
+    0 // Exit code

@@ -6,8 +6,8 @@ open System.Net.Http
 open System.Net.Http.Headers
 open System.Text
 open System.Text.Json
+open System.Threading.Tasks
 open FsLandsatApi.Json.Usgs.LoginToken
-open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
 open Microsoft.Extensions.Options
 
@@ -22,7 +22,7 @@ type UsgsTokenService(
     let mutable authToken: (string * DateTime) option = None
     
     member this.GetToken() =
-        async {
+        task {
             match authToken with
             | None ->
                 return! this.GetTokenFromApi()
@@ -32,8 +32,8 @@ type UsgsTokenService(
                 return (Ok token)
         }
         
-    member private this.GetTokenFromApi() : Async<Result<string, Exception>> =
-        async {
+    member private this.GetTokenFromApi() : Task<Result<string, Exception>> =
+        task {
             let getDateTimestamp = fun (dateTime: DateTime) -> dateTime.ToString("s")
             logger.LogInformation($"[{getDateTimestamp(DateTime.Now)}] Fetching new access token.")
                 
@@ -50,7 +50,7 @@ type UsgsTokenService(
             use requestContent = new StringContent(requestBody, Encoding.UTF8, "application/json")
             
             
-            let! response = httpClient.PostAsync("login-token", requestContent) |> Async.AwaitTask
+            let! response = httpClient.PostAsync("login-token", requestContent)
             use streamReader = new StreamReader(response.Content.ReadAsStream())
             let responseContent = streamReader.ReadToEnd()
             

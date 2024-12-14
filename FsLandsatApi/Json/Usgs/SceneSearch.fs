@@ -1,13 +1,11 @@
 ﻿module FsLandsatApi.Json.Usgs.SceneSearch
 
 open System
-open System.Globalization
 open System.Text.Json
 open System.Text.Json.Nodes
 open FsLandsatApi.Errors
 open FsLandsatApi.Models.Usgs.Scene
 open FsToolkit.ErrorHandling
-open Microsoft.AspNetCore.Authentication
 
 
 /// Creates a request to the endpoint 'scene-search' for some scene data.
