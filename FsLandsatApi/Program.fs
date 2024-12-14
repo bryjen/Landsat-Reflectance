@@ -5,6 +5,8 @@ open System.Text.Json
 open FsLandsatApi.Handlers.NotFoundHandler
 open FsLandsatApi.Services.UsgsSceneService
 open FsLandsatApi.Services.UsgsTokenService
+open FsLandsatApi.Utils
+open FsLandsatApi.Utils.UsgsHttpClient
 open Giraffe.EndpointRouting
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
@@ -62,9 +64,7 @@ let configureServices (services: IServiceCollection) =
         
         
     // Configure http clients
-    services.AddHttpClient() |> ignore
-    
-    services.AddHttpClient("Usgs", fun httpClient ->
+    services.AddHttpClient<UsgsHttpClient>(fun httpClient ->
         httpClient.BaseAddress <- Uri("https://m2m.cr.usgs.gov/api/api/json/stable/")
         httpClient.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue("application/json")))
     |> ignore

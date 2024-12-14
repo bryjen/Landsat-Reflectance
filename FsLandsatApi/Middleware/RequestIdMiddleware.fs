@@ -14,10 +14,6 @@ let requestIdMiddleware (next: HttpFunc) (ctx: HttpContext) =
     let requestId = Guid.NewGuid()
     ctx.Items["requestId"] <- requestId
     
-    let scheme = ctx.Request.Scheme
-    let host = ctx.Request.Host.Value
-    let path = ctx.Request.Path.Value
-    let query = ctx.Request.QueryString.Value
-    logger.LogInformation($"[{requestId}] Tagged inbound request to \"{scheme}://{host}{path}{query}\" with a request id.")
+    logger.LogInformation($"[{requestId}] Tagged inbound request to \"{ctx.GetRequestUrl()}\" with a request id.")
     
     next ctx

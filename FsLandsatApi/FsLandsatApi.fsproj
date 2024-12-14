@@ -10,6 +10,7 @@
         <Compile Include="Errors.fs" />
         <Compile Include="Options.fs" />
         <Compile Include="Extensions.fs" />
+        <Compile Include="Utils\UsgsHttpClient.fs" />
         <Compile Include="Models\Usgs\Scene.fs" />
         <Compile Include="Models\ApiResponse.fs" />
         <Compile Include="Json\Usgs\LoginToken.fs" />

@@ -8,6 +8,7 @@ open System.Text
 open System.Text.Json
 open System.Threading.Tasks
 open FsLandsatApi.Json.Usgs.LoginToken
+open FsLandsatApi.Utils.UsgsHttpClient
 open Microsoft.Extensions.Logging
 open Microsoft.Extensions.Options
 
@@ -16,7 +17,7 @@ open FsLandsatApi.Options
 
 type UsgsTokenService(
     logger: ILogger<UsgsTokenService>,
-    httpClientFactory: IHttpClientFactory,
+    usgsHttpClient: UsgsHttpClient,
     usgsOptions: IOptions<UsgsOptions>) =
     
     let mutable authToken: (string * DateTime) option = None
@@ -37,20 +38,13 @@ type UsgsTokenService(
             let getDateTimestamp = fun (dateTime: DateTime) -> dateTime.ToString("s")
             logger.LogInformation($"[{getDateTimestamp(DateTime.Now)}] Fetching new access token.")
                 
-            // BUG: See why IHttpClientFactory does not work
-            // let httpClient = httpClientFactory.CreateClient("Usgs")
-            
-            use httpClient = new HttpClient()
-            httpClient.BaseAddress <- Uri("https://m2m.cr.usgs.gov/api/api/json/stable/")
-            httpClient.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue("application/json"))
-            
             let requestBody = Map.ofArray [| ("username", usgsOptions.Value.Username); ("token", usgsOptions.Value.AppToken) |]
                               |> JsonSerializer.Serialize
                               
             use requestContent = new StringContent(requestBody, Encoding.UTF8, "application/json")
             
             
-            let! response = httpClient.PostAsync("login-token", requestContent)
+            let! response = usgsHttpClient.HttpClient.PostAsync("login-token", requestContent)
             use streamReader = new StreamReader(response.Content.ReadAsStream())
             let responseContent = streamReader.ReadToEnd()
             

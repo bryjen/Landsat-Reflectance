@@ -7,6 +7,7 @@ open System.Net.Http.Headers
 open System.Text
 open FsLandsatApi.Json.Usgs.SceneSearch
 open FsLandsatApi.Models.Usgs.Scene
+open FsLandsatApi.Utils.UsgsHttpClient
 open Microsoft.Extensions.Logging
 open FsLandsatApi.Services.UsgsTokenService
 open Microsoft.FSharp.Control
@@ -34,14 +35,11 @@ let simplifySceneData (sceneData: SceneData) =
 
 
 type UsgsSceneService(
+    usgsHttpClient: UsgsHttpClient,
     usgsTokenService: UsgsTokenService) =
     
     member this.GetScenes(path: int, row: int, results: int) =
         task {
-            use httpClient = new HttpClient()
-            httpClient.BaseAddress <- Uri("https://m2m.cr.usgs.gov/api/api/json/stable/")
-            httpClient.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue("application/json"))
-            
             let sceneSearchRequest = createSceneSearchRequest path row results
             use requestContent = new StringContent(sceneSearchRequest, Encoding.UTF8, "application/json")
             
@@ -49,9 +47,9 @@ type UsgsSceneService(
             return 
                 match authTokenResult with
                 | Ok authToken ->
-                    httpClient.DefaultRequestHeaders.Add("X-Auth-Token", authToken)
+                    usgsHttpClient.HttpClient.DefaultRequestHeaders.Add("X-Auth-Token", authToken)
                     
-                    let responseTask = httpClient.PostAsync("scene-search", requestContent)
+                    let responseTask = usgsHttpClient.HttpClient.PostAsync("scene-search", requestContent)
                     responseTask.Wait()
                     let response = responseTask.Result
                     

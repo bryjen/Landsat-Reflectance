@@ -18,9 +18,7 @@ let private assertValidHttpMethod (ctx: HttpContext) =
     | "GET" ->
         Ok ()
     | method ->
-        Error { RequestGuid = Guid.NewGuid()
-                ErrorMessage = Some $"Incorrect HTTP method '{method}'"
-                Data = None }
+        Error $"Incorrect HTTP method '{method}'"
         
 let private getRequiredQueryParameter (ctx: HttpContext) (paramName: string) =
     match ctx.TryGetQueryStringValue paramName with
@@ -43,44 +41,56 @@ let private tryGetParameters (ctx: HttpContext) =
             
         return path, row, results
     }
+    
+    
+// wrapper around 'UsgsSceneService' that logs and processes output
+let private getScenes (ctx: HttpContext) (logger: ILogger) (requestId: Guid) (infoTuple: int * int * int) =
+    task {
+        let path, row, results = infoTuple
+        let sceneService = ctx.RequestServices.GetRequiredService<UsgsSceneService>()
+        let! sceneDataResult = sceneService.GetScenes(path, row, results)
+        match sceneDataResult with
+        | Ok sceneData ->
+            let successfulResponse =
+                { RequestGuid = requestId
+                  ErrorMessage = None
+                  Data = Some sceneData }
+            logger.LogInformation($"[{requestId}] Successful \"GET\", returned {sceneData.Length} item(s)")
+            return successfulResponse
+            
+        | Error sceneRequestError ->
+            let unsuccessfulResponse =
+                { RequestGuid = Guid.NewGuid()
+                  ErrorMessage = Some (sceneRequestError.ToString())
+                  Data = None }
+            logger.LogInformation($"[{requestId}] Failed \"GET\". Bad request with error message \"{sceneRequestError.ToString()}\"")
+            return unsuccessfulResponse
+    }
+
 
 let sceneHandler: HttpHandler =
     fun (next: HttpFunc) (ctx: HttpContext) ->
-        task {
-            let requestId: Guid =
-                match ctx.Items.TryGetValue("requestId") with
-                | true, value -> value :?> Guid
-                | false, _ -> Guid.Empty
-                
-            let loggerFactory = ctx.RequestServices.GetRequiredService<ILoggerFactory>()
-            let logger = loggerFactory.CreateLogger("FsLandsatApi.Handlers.SceneHandler")
+        let requestId: Guid =
+            match ctx.Items.TryGetValue("requestId") with
+            | true, value -> value :?> Guid
+            | false, _ -> Guid.Empty
             
-            match tryGetParameters ctx with
-            | Ok (path, row, results) ->
-                let sceneService = ctx.RequestServices.GetRequiredService<UsgsSceneService>()
-                let! sceneDataResult = sceneService.GetScenes(path, row, results)
-                match sceneDataResult with
-                | Ok sceneData ->
-                    let successfulResponse =
-                        { RequestGuid = requestId
-                          ErrorMessage = None
-                          Data = Some sceneData }
-                    logger.LogInformation($"[{requestId}] Successful \"GET\", returned {sceneData.Length} item(s)")
-                    return! (Successful.ok (json<ApiResponse<SimplifiedSceneData array>> successfulResponse)) next ctx
-                    
-                | Error sceneRequestError ->
-                    let unsuccessfulResponse =
-                        { RequestGuid = Guid.NewGuid()
-                          ErrorMessage = Some (sceneRequestError.ToString())
-                          Data = None }
-                    logger.LogInformation($"[{requestId}] Failed \"GET\". Bad request with error message \"{sceneRequestError.ToString()}\"")
-                    return! (Successful.ok (json<ApiResponse<string>> unsuccessfulResponse)) next ctx
-                    
-            | Error getParametersError ->
-                let unsuccessfulResponse =
-                    { RequestGuid = Guid.NewGuid()
-                      ErrorMessage = Some getParametersError
-                      Data = None }
-                logger.LogInformation($"[{requestId}] Failed \"GET\". Bad request with error message \"{getParametersError}\"")
-                return! (Successful.ok (json<ApiResponse<string>> unsuccessfulResponse)) next ctx
-        }
+        let loggerFactory = ctx.RequestServices.GetRequiredService<ILoggerFactory>()
+        let logger = loggerFactory.CreateLogger("FsLandsatApi.Handlers.SceneHandler")
+        
+        assertValidHttpMethod ctx
+        |> Result.bind (fun _ -> tryGetParameters ctx)
+        |> Result.map (getScenes ctx logger requestId)
+        |> function
+           | Ok validRequestResponseTask -> task {
+                   let! validRequestResponse = validRequestResponseTask
+                   return! (Successful.ok (json<ApiResponse<SimplifiedSceneData array>> validRequestResponse)) next ctx
+               }
+           | Error invalidRequestErrorMsg -> task {
+                   let asApiResponseObj =
+                       { RequestGuid = requestId
+                         ErrorMessage = Some invalidRequestErrorMsg
+                         Data = None }
+                   logger.LogInformation($"[{requestId}] Failed \"GET\". Bad request with error message \"{invalidRequestErrorMsg}\"")
+                   return! (Successful.ok (json<ApiResponse<string>> asApiResponseObj)) next ctx
+               }
