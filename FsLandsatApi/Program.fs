@@ -3,6 +3,8 @@ open System.Net.Http
 open System.Net.Http.Headers
 open System.Text.Json
 open FsLandsatApi.Handlers.NotFoundHandler
+open FsLandsatApi.Services
+open FsLandsatApi.Services.DbUserService
 open FsLandsatApi.Services.UsgsSceneService
 open FsLandsatApi.Services.UsgsTokenService
 open FsLandsatApi.Utils
@@ -18,27 +20,34 @@ open Giraffe
 
 open FsLandsatApi.Extensions
 
+let jsonSerializerOptions =
+    let jsonSerializerOptions = JsonSerializerOptions()
+    jsonSerializerOptions.WriteIndented <- true
+    jsonSerializerOptions.PropertyNameCaseInsensitive <- true
+    jsonSerializerOptions
+
 // Need to create custom type that wraps around 'System.Text.JsonSerializer' cause the program just doesn't work for
 // some reason.
 type AppJsonSerializer() =
+    
     interface Json.ISerializer with
         member this.SerializeToString<'T>(x: 'T) =
-            JsonSerializer.Serialize<'T>(x)
+            JsonSerializer.Serialize<'T>(x, jsonSerializerOptions)
             
         member this.SerializeToBytes<'T>(x: 'T) =
-            JsonSerializer.SerializeToUtf8Bytes<'T>(x)
+            JsonSerializer.SerializeToUtf8Bytes<'T>(x, jsonSerializerOptions)
             
         member this.SerializeToStreamAsync<'T> (x: 'T) stream =
-            JsonSerializer.SerializeAsync(stream, x)
+            JsonSerializer.SerializeAsync(stream, x, jsonSerializerOptions)
         
         member this.Deserialize<'T>(bytes: byte array): 'T =
-            JsonSerializer.Deserialize<'T>(bytes)
+            JsonSerializer.Deserialize<'T>(bytes, jsonSerializerOptions)
             
         member this.Deserialize<'T>(json: string): 'T =
-            JsonSerializer.Deserialize<'T>(json)
+            JsonSerializer.Deserialize<'T>(json, jsonSerializerOptions)
             
         member this.DeserializeAsync(stream) =
-            JsonSerializer.DeserializeAsync(stream).AsTask()
+            JsonSerializer.DeserializeAsync(stream, jsonSerializerOptions).AsTask()
 
 
 let configureApp (app: IApplicationBuilder) =
@@ -58,10 +67,15 @@ let configureServices (services: IServiceCollection) =
     // Configure option types
     let anyOptionInvalid = ref false
     services.TryAddUsgsOptions(logger, anyOptionInvalid) |> ignore
+    services.TryAddDbOptions(logger, anyOptionInvalid) |> ignore
+    services.TryAddTokenOptions(logger, anyOptionInvalid) |> ignore
     
     if anyOptionInvalid.Value then
         failwith "Startup configuration failed. Could not initialize some options"
         
+    services.ConfigureHttpJsonOptions(fun jsonOptions ->
+        jsonOptions.SerializerOptions.PropertyNameCaseInsensitive <- true
+        jsonOptions.SerializerOptions.WriteIndented <- true) |> ignore
         
     // Configure http clients
     services.AddHttpClient<UsgsHttpClient>(fun httpClient ->
@@ -71,6 +85,7 @@ let configureServices (services: IServiceCollection) =
     
     services.AddSingleton<UsgsTokenService>() |> ignore
     services.AddTransient<UsgsSceneService>() |> ignore
+    services.AddScoped<DbUserService>() |> ignore
         
     services.AddGiraffe |> ignore
     services.AddSingleton<Json.ISerializer>(fun serviceProvider -> AppJsonSerializer() :> Json.ISerializer) |> ignore

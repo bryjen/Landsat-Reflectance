@@ -1,24 +1,27 @@
 ﻿module FsLandsatApi.Handlers.SceneHandler
 
 open System
-open FsLandsatApi.Models.Usgs.Scene
-open FsLandsatApi.Services.UsgsSceneService
-open FsToolkit.ErrorHandling
-open Microsoft.AspNetCore.Http
 
-open FsLandsatApi.Models.ApiResponse
+open Microsoft.FSharp.Core
+open Microsoft.AspNetCore.Http
+open Microsoft.Extensions.Logging
+open Microsoft.Extensions.DependencyInjection
 
 open Giraffe
-open Microsoft.Extensions.DependencyInjection
-open Microsoft.Extensions.Logging
-open Microsoft.FSharp.Core
+
+open FsToolkit.ErrorHandling
+open FsLandsatApi.Models.Usgs.Scene
+open FsLandsatApi.Models.ApiResponse
+open FsLandsatApi.Services.UsgsSceneService
+
+
 
 let private assertValidHttpMethod (ctx: HttpContext) =
     match ctx.Request.Method with
     | "GET" ->
         Ok ()
     | method ->
-        Error $"Incorrect HTTP method '{method}'"
+        Error $"Invalid HTTP method '{method}'"
         
 let private getRequiredQueryParameter (ctx: HttpContext) (paramName: string) =
     match ctx.TryGetQueryStringValue paramName with
