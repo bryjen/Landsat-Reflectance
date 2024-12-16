@@ -58,6 +58,29 @@ type DbUserService(
     logger: ILogger<DbUserService>,
     dbOptions: IOptions<DbOptions>) =
     
+    // Matches without password, only use in handlers/endpoints where the user is already authenticated.
+    member internal this.TryGetUserByEmail(email: string) = 
+        try
+            use connection = new MySqlConnection(dbOptions.Value.DbConnectionString)
+            connection.Open()
+            
+            let queryStringRaw = "SELECT * FROM Users as u WHERE u.Email = @email"
+            
+            use queryCommand = new MySqlCommand(queryStringRaw, connection)
+            queryCommand.Parameters.AddWithValue("@email", email) |> ignore
+            
+            let queryStringToLog = queryStringRaw.Replace("@email", $"\"{email}\"")
+            logger.LogInformation(queryStringToLog)
+            
+            use reader = queryCommand.ExecuteReader()
+            parseUsersFromDataReader reader logger
+            |> function
+                | user :: _ -> Ok user
+                | [] -> Error $"Could not find user with email \"{email}\""
+        with
+        | ex ->
+            Error ex.Message
+    
     member this.TryGetUserByCredentials(email: string, password: string) =
         try
             use connection = new MySqlConnection(dbOptions.Value.DbConnectionString)

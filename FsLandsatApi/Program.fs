@@ -8,6 +8,7 @@ open FsLandsatApi.Handlers.NotFoundHandler
 open FsLandsatApi.Options
 open FsLandsatApi.Services
 open FsLandsatApi.Services.DbUserService
+open FsLandsatApi.Services.DbUserTargetService
 open FsLandsatApi.Services.UsgsSceneService
 open FsLandsatApi.Services.UsgsTokenService
 open FsLandsatApi.Utils
@@ -107,6 +108,7 @@ let configureServices (services: IServiceCollection) =
     services.AddSingleton<UsgsTokenService>() |> ignore
     services.AddTransient<UsgsSceneService>() |> ignore
     services.AddScoped<DbUserService>() |> ignore
+    services.AddScoped<DbUserTargetService>() |> ignore
         
     services.AddGiraffe() |> ignore
     services.AddSingleton<Json.ISerializer>(fun serviceProvider ->

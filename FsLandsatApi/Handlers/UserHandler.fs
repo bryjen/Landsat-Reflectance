@@ -61,14 +61,19 @@ module private Tokens =
         
         
 [<RequireQualifiedAccess>]
-module LoginPostMethod =
+module UserLoginPost =
     [<CLIMutable>]
     type LoginUserRequest =
         { Email: string
           Password: string }
     
-    let handler (next: HttpFunc) (ctx: HttpContext) (requestId: Guid) : HttpFuncResult =
+    let handler (next: HttpFunc) (ctx: HttpContext) : HttpFuncResult =
         task {
+            let requestId: Guid =
+                match ctx.Items.TryGetValue("requestId") with
+                | true, value -> value :?> Guid
+                | false, _ -> Guid.Empty
+            
             let dbUserService = ctx.RequestServices.GetRequiredService<DbUserService>()
             let authTokenOptions = ctx.RequestServices.GetRequiredService<IOptions<AuthTokenOptions>>().Value
             let jsonSerializerOptions = ctx.RequestServices.GetRequiredService<IOptions<JsonOptions>>().Value.SerializerOptions
@@ -100,15 +105,20 @@ module LoginPostMethod =
        
        
 [<RequireQualifiedAccess>]
-module CreatePostMethod =
+module UserCreatePost =
     [<CLIMutable>]
     type CreateUserRequest =
         { Email: string
           Password: string
           IsEmailEnabled: bool }
     
-    let handler (next: HttpFunc) (ctx: HttpContext) (requestId: Guid) : HttpFuncResult =
+    let handler (next: HttpFunc) (ctx: HttpContext) : HttpFuncResult =
         task {
+            let requestId: Guid =
+                match ctx.Items.TryGetValue("requestId") with
+                | true, value -> value :?> Guid
+                | false, _ -> Guid.Empty
+            
             let dbUserService = ctx.RequestServices.GetRequiredService<DbUserService>()
             let authTokenOptions = ctx.RequestServices.GetRequiredService<IOptions<AuthTokenOptions>>().Value
             let jsonSerializerOptions = ctx.RequestServices.GetRequiredService<IOptions<JsonOptions>>().Value.SerializerOptions
@@ -137,51 +147,11 @@ module CreatePostMethod =
        
         
 [<RequireQualifiedAccess>]
-module private PatchMethod =
+module private UserPatch =
     let handler (next: HttpFunc) (ctx: HttpContext) =
         failwith "todo"
         
 [<RequireQualifiedAccess>]
-module private DeleteMethod =
+module private UserDelete =
     let handler (next: HttpFunc) (ctx: HttpContext) =
         failwith "todo"
-    
-    
-/// Main http handler for the 'user' endpoint. 
-let rec userHandler: HttpHandler =
-    fun (next: HttpFunc) (ctx: HttpContext) ->
-        let requestId: Guid =
-            match ctx.Items.TryGetValue("requestId") with
-            | true, value -> value :?> Guid
-            | false, _ -> Guid.Empty
-        
-        match ctx.Request.Method with
-        | "POST" -> LoginPostMethod.handler next ctx requestId
-        | "PATCH" -> PatchMethod.handler next ctx
-        | "DELETE" -> DeleteMethod.handler next ctx
-        | invalidMethodStr -> task {
-                let asApiResponseObj =
-                    { RequestGuid = requestId
-                      ErrorMessage = Some $"Invalid HTTP method '{invalidMethodStr}'"
-                      Data = None }
-                return! (RequestErrors.notFound (json<ApiResponse<obj>> asApiResponseObj)) next ctx
-            }
-
-/// Main http handler for the 'user/create' endpoint. Separate endpoint because 'POST /user/' is already reserved for
-/// logging in
-let rec userCreateHandler: HttpHandler =
-    fun (next: HttpFunc) (ctx: HttpContext) ->
-        let requestId: Guid =
-            match ctx.Items.TryGetValue("requestId") with
-            | true, value -> value :?> Guid
-            | false, _ -> Guid.Empty
-        
-        match ctx.Request.Method with
-        | "POST" -> CreatePostMethod.handler next ctx requestId
-        | invalidMethodStr -> task {
-                let asApiResponseObj =
-                    { RequestGuid = requestId
-                      ErrorMessage = Some $"Invalid HTTP method '{invalidMethodStr}'"
-                      Data = None }
-                return! (RequestErrors.notFound (json<ApiResponse<obj>> asApiResponseObj)) next ctx
-            }

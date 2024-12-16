@@ -2,12 +2,16 @@
 
 open FsLandsatApi.Handlers.SceneHandler
 open FsLandsatApi.Handlers.UserHandler
+open FsLandsatApi.Handlers.UserTargetsHandler
+open FsLandsatApi.Handlers.UserTargetsHandler.UserTargetsPost
 open FsLandsatApi.Middleware.RequestIdMiddleware
 open FsLandsatApi.Models.ApiResponse
+open FsLandsatApi.Models.User
 open FsLandsatApi.Models.Usgs.Scene
 open Giraffe.EndpointRouting
 open Giraffe
 open Giraffe.OpenApi
+open Giraffe.ViewEngine
 open Microsoft.OpenApi.Models
 open Microsoft.AspNetCore.Builder
 
@@ -70,7 +74,7 @@ module private EndpointOpenApiConfigs =
     let POST_userEndpointConfig = 
         OpenApiConfig(
             responseBodies = [| ResponseBody(typeof<ApiResponse<string>>) |],
-            requestBody = RequestBody(typeof<LoginPostMethod.LoginUserRequest>),
+            requestBody = RequestBody(typeof<UserLoginPost.LoginUserRequest>),
             configureOperation = (fun o ->
                 o.Tags.Clear()
                 let tag = OpenApiTag()
@@ -84,7 +88,7 @@ module private EndpointOpenApiConfigs =
     let POST_createUserEndpointConfig = 
         OpenApiConfig(
             responseBodies = [| ResponseBody(typeof<ApiResponse<string>>) |],
-            requestBody = RequestBody(typeof<CreatePostMethod.CreateUserRequest>),
+            requestBody = RequestBody(typeof<UserCreatePost.CreateUserRequest>),
             configureOperation = (fun o ->
                 o.Tags.Clear()
                 let tag = OpenApiTag()
@@ -95,6 +99,58 @@ module private EndpointOpenApiConfigs =
                 o.Summary <- "Attempts to create a user"
                 o))
         
+        
+    let GET_userTargetsEndpointConfig = 
+        OpenApiConfig(
+            responseBodies = [| ResponseBody(typeof<ApiResponse<SimplifiedTarget list>>) |],
+            configureOperation = (fun o ->
+                o.Tags.Clear()
+                let tag = OpenApiTag()
+                tag.Name <- "targets"
+                o.Tags.Add(tag)
+                
+                let securityRequirement = OpenApiSecurityRequirement()
+                securityRequirement.Add(
+                    OpenApiSecurityScheme(
+                        Reference = OpenApiReference(
+                            Type = ReferenceType.SecurityScheme,
+                            Id = "Bearer"
+                        )
+                    ),
+                    [|  |] 
+                )
+                o.Security <- [| securityRequirement |]
+                
+                o.OperationId <- "GET_targets"
+                o.Summary <- "Gets all emails bound to a specified user"
+                o))
+    
+    let POST_userTargetsEndpointConfig = 
+        OpenApiConfig(
+            responseBodies = [| ResponseBody(typeof<ApiResponse<SimplifiedTarget>>) |],
+            requestBody = RequestBody(typeof<CreateTargetRequest>),
+            configureOperation = (fun o ->
+                o.Tags.Clear()
+                let tag = OpenApiTag()
+                tag.Name <- "targets"
+                o.Tags.Add(tag)
+                
+                let securityRequirement = OpenApiSecurityRequirement()
+                securityRequirement.Add(
+                    OpenApiSecurityScheme(
+                        Reference = OpenApiReference(
+                            Type = ReferenceType.SecurityScheme,
+                            Id = "Bearer"
+                        )
+                    ),
+                    [|  |] 
+                )
+                o.Security <- [| securityRequirement |]
+                
+                o.OperationId <- "POST_targets"
+                o.Summary <- "Attempts to create a target"
+                o))
+        
 let notLoggedIn =
     RequestErrors.UNAUTHORIZED
         "Bearer"
@@ -102,27 +158,28 @@ let notLoggedIn =
         "You must be logged in."
 
 let mustBeLoggedIn: HttpHandler = requiresAuthentication notLoggedIn
-
-
-let sceneEndpoint: Routers.Endpoint = 
-    Routers.route "/scene" (mustBeLoggedIn >=> requestIdMiddleware >=> sceneHandler)
-    |> addOpenApi EndpointOpenApiConfigs.sceneEndpointConfig
-    
-let userEndpoint: Routers.Endpoint = 
-    Routers.route "/user" (requestIdMiddleware >=> userHandler)
-    |> addOpenApi EndpointOpenApiConfigs.POST_userEndpointConfig
-    
-let createUserEndpoint: Routers.Endpoint = 
-    Routers.route "/user/create" (requestIdMiddleware >=> userCreateHandler)
-    |> addOpenApi EndpointOpenApiConfigs.POST_createUserEndpointConfig
     
     
 let endpoints: Routers.Endpoint list = [
     Routers.GET [
-        sceneEndpoint
+        Routers.route "/scene" (GET >=> mustBeLoggedIn >=> requestIdMiddleware >=> sceneHandler)
+        |> addOpenApi EndpointOpenApiConfigs.sceneEndpointConfig
+        
+        Routers.route "/user/targets" (GET >=> mustBeLoggedIn >=> requestIdMiddleware >=> UserTargetsGet.handler)
+        |> addOpenApi EndpointOpenApiConfigs.GET_userTargetsEndpointConfig
     ]
     Routers.POST [
-        userEndpoint
-        createUserEndpoint
+        Routers.route "/user" (POST >=> requestIdMiddleware >=> UserLoginPost.handler)
+        |> addOpenApi EndpointOpenApiConfigs.POST_userEndpointConfig
+        
+        Routers.route "/user/create" (POST >=> requestIdMiddleware >=> UserCreatePost.handler)
+        |> addOpenApi EndpointOpenApiConfigs.POST_createUserEndpointConfig
+        
+        Routers.route "/user/targets" (POST >=> mustBeLoggedIn >=> requestIdMiddleware >=> UserTargetsPost.handler)
+        |> addOpenApi EndpointOpenApiConfigs.POST_userTargetsEndpointConfig
+    ]
+    Routers.PATCH [
+    ]
+    Routers.DELETE [
     ]
 ]
