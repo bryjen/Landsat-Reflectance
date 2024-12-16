@@ -1,17 +1,23 @@
 open System
 open System.Net.Http
 open System.Net.Http.Headers
+open System.Text
 open System.Text.Json
+open System.Threading.Tasks
 open FsLandsatApi.Handlers.NotFoundHandler
+open FsLandsatApi.Options
 open FsLandsatApi.Services
 open FsLandsatApi.Services.DbUserService
 open FsLandsatApi.Services.UsgsSceneService
 open FsLandsatApi.Services.UsgsTokenService
 open FsLandsatApi.Utils
+open FsLandsatApi.Utils.AppJsonSerializer
 open FsLandsatApi.Utils.UsgsHttpClient
 open Giraffe.EndpointRouting
+open Microsoft.AspNetCore.Authentication.JwtBearer
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
+open Microsoft.AspNetCore.Http.Json
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Logging
@@ -19,50 +25,18 @@ open Microsoft.Extensions.Logging
 open Giraffe
 
 open FsLandsatApi.Extensions
-
-let jsonSerializerOptions =
-    let jsonSerializerOptions = JsonSerializerOptions()
-    jsonSerializerOptions.WriteIndented <- true
-    jsonSerializerOptions.PropertyNameCaseInsensitive <- true
-    jsonSerializerOptions
-
-// Need to create custom type that wraps around 'System.Text.JsonSerializer' cause the program just doesn't work for
-// some reason.
-type AppJsonSerializer() =
-    
-    interface Json.ISerializer with
-        member this.SerializeToString<'T>(x: 'T) =
-            JsonSerializer.Serialize<'T>(x, jsonSerializerOptions)
-            
-        member this.SerializeToBytes<'T>(x: 'T) =
-            JsonSerializer.SerializeToUtf8Bytes<'T>(x, jsonSerializerOptions)
-            
-        member this.SerializeToStreamAsync<'T> (x: 'T) stream =
-            JsonSerializer.SerializeAsync(stream, x, jsonSerializerOptions)
-        
-        member this.Deserialize<'T>(bytes: byte array): 'T =
-            JsonSerializer.Deserialize<'T>(bytes, jsonSerializerOptions)
-            
-        member this.Deserialize<'T>(json: string): 'T =
-            JsonSerializer.Deserialize<'T>(json, jsonSerializerOptions)
-            
-        member this.DeserializeAsync(stream) =
-            JsonSerializer.DeserializeAsync(stream, jsonSerializerOptions).AsTask()
+open Microsoft.Extensions.Options
+open Microsoft.IdentityModel.Tokens
+open Microsoft.OpenApi.Models
 
 
-let configureApp (app: IApplicationBuilder) =
-    app.UseRouting()
-       .UseSwagger()
-       .UseSwaggerUI()
-       .UseGiraffe(FsLandsatApi.Routing.endpoints)
-       .UseGiraffe(notFoundHandler)
+
+
     
     
-    
-let configureServices (services: IServiceCollection) =
+let configureAppOptions (services: IServiceCollection) =
     let provider = services.BuildServiceProvider()
     let logger = provider.GetService<ILoggerFactory>().CreateLogger("ServiceConfiguration")
-    
     
     // Configure option types
     let anyOptionInvalid = ref false
@@ -73,6 +47,53 @@ let configureServices (services: IServiceCollection) =
     if anyOptionInvalid.Value then
         failwith "Startup configuration failed. Could not initialize some options"
         
+    services
+    
+    
+let configureAuth (services: IServiceCollection) =
+    services.AddAuthentication(fun options ->
+                options.DefaultAuthenticateScheme <- JwtBearerDefaults.AuthenticationScheme
+                options.DefaultChallengeScheme <- JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(fun options ->
+                // Configure 'TokenValidationParameters'
+                let authTokenOptions =
+                    match AuthTokenOptions.CreateTokenOptions() with
+                    | Ok value -> value
+                    | Error _ -> failwith "Could not get the authentication token options while configuring authentication, \"AuthTokenOptions\" could not be initialized."
+                let signingKey = SymmetricSecurityKey(Encoding.UTF8.GetBytes(authTokenOptions.SigningKey));
+                
+                let tokenValidationParams = TokenValidationParameters()
+                tokenValidationParams.ValidateIssuer <- true
+                tokenValidationParams.ValidateAudience <- true
+                tokenValidationParams.ValidateLifetime <- true
+                tokenValidationParams.ValidateIssuerSigningKey <- true
+                
+                tokenValidationParams.ValidIssuer <- "FlatEarthers"
+                tokenValidationParams.ValidAudience <- "FlatEarthers"
+                tokenValidationParams.ClockSkew <- TimeSpan.FromMinutes(5.0)
+                tokenValidationParams.IssuerSigningKey <- signingKey
+                
+                options.TokenValidationParameters <- tokenValidationParams
+                
+                (*
+                let jwtBearerEvents = JwtBearerEvents()
+                jwtBearerEvents.OnMessageReceived <- fun msgReceivedCtx ->
+                    match msgReceivedCtx.Request.Headers.TryGetValue("X-Auth-Token") with
+                    | true, value -> msgReceivedCtx.Token <- value
+                    | false, _ -> ()
+                    Task.CompletedTask
+                
+                options.Events <- jwtBearerEvents
+                *)
+                ())
+    |> ignore
+    
+    services.AddAuthorization() |> ignore
+    
+    services
+    
+    
+let configureServices (services: IServiceCollection) =
     services.ConfigureHttpJsonOptions(fun jsonOptions ->
         jsonOptions.SerializerOptions.PropertyNameCaseInsensitive <- true
         jsonOptions.SerializerOptions.WriteIndented <- true) |> ignore
@@ -87,19 +108,59 @@ let configureServices (services: IServiceCollection) =
     services.AddTransient<UsgsSceneService>() |> ignore
     services.AddScoped<DbUserService>() |> ignore
         
-    services.AddGiraffe |> ignore
-    services.AddSingleton<Json.ISerializer>(fun serviceProvider -> AppJsonSerializer() :> Json.ISerializer) |> ignore
+    services.AddGiraffe() |> ignore
+    services.AddSingleton<Json.ISerializer>(fun serviceProvider ->
+        let jsonSerializerOptions = serviceProvider.GetRequiredService<IOptions<JsonOptions>>()
+        AppJsonSerializer(jsonSerializerOptions.Value.SerializerOptions) :> Json.ISerializer) |> ignore
     
     services.AddRouting() |> ignore
     services.AddEndpointsApiExplorer() |> ignore
-    services.AddSwaggerGen() |> ignore
-    ()
+    services
+    
+    
+let configureOpenApi (services: IServiceCollection) =
+    services.AddSwaggerGen(fun config ->
+        let openApiInfo = OpenApiInfo()
+        openApiInfo.Title <- "FsLandsaApi"
+        openApiInfo.Version <- "0.1.0"
+        openApiInfo.Description <- "PLACEHOLDER"
+        config.SwaggerDoc("v1", openApiInfo)
+        
+        // Auth config
+        let securityScheme = OpenApiSecurityScheme()
+        securityScheme.Name <- "Authorization"
+        securityScheme.Type <- SecuritySchemeType.Http
+        securityScheme.Scheme <- "bearer"
+        securityScheme.BearerFormat <- "JWT"
+        securityScheme.In <- ParameterLocation.Header
+        securityScheme.Description <- "Enter the JWT token obtained from logging in."
+        config.AddSecurityDefinition("Bearer", securityScheme)
+        ())
+    |> ignore
+    services
 
+
+let configureApp (app: IApplicationBuilder) =
+    app.UseRouting()
+       .UseSwagger()
+       .UseSwaggerUI()
+       
+       .UseAuthentication()
+       .UseAuthorization()
+       
+       .UseGiraffe(FsLandsatApi.Routing.endpoints)
+       .UseGiraffe(notFoundHandler)
 
 [<EntryPoint>]
 let main args =
     let builder = WebApplication.CreateBuilder(args)
-    configureServices builder.Services
+    
+    builder.Services
+    |> configureAppOptions
+    |> configureServices
+    |> configureAuth
+    |> configureOpenApi
+    |> ignore
     
     let app = builder.Build()
     

@@ -30,6 +30,20 @@ module private EndpointOpenApiConfigs =
                 o.Summary <- "Fetches scene information"
                 o.Description <-"Fetches landsat scene information from the **\"landsat_ot_c2_l2\"** database related to a specific path and row."
                 
+                
+                let securityRequirement = OpenApiSecurityRequirement()
+                securityRequirement.Add(
+                    OpenApiSecurityScheme(
+                        Reference = OpenApiReference(
+                            Type = ReferenceType.SecurityScheme,
+                            Id = "Bearer"
+                        )
+                    ),
+                    [|  |] 
+                )
+                o.Security <- [| securityRequirement |]
+                
+                
                 let pathParam = OpenApiParameter()
                 pathParam.Name <- "path"
                 pathParam.In <- ParameterLocation.Query
@@ -49,6 +63,8 @@ module private EndpointOpenApiConfigs =
                 resultsParam.In <- ParameterLocation.Query
                 resultsParam.Schema <- intSchema
                 o.Parameters.Add(resultsParam)
+                
+                
                 o))
         
     let POST_userEndpointConfig = 
@@ -78,9 +94,18 @@ module private EndpointOpenApiConfigs =
                 o.OperationId <- "POST_createUser"
                 o.Summary <- "Attempts to create a user"
                 o))
+        
+let notLoggedIn =
+    RequestErrors.UNAUTHORIZED
+        "Bearer"
+        "Some Realm"
+        "You must be logged in."
+
+let mustBeLoggedIn: HttpHandler = requiresAuthentication notLoggedIn
+
 
 let sceneEndpoint: Routers.Endpoint = 
-    Routers.route "/scene" (requestIdMiddleware >=> sceneHandler)
+    Routers.route "/scene" (mustBeLoggedIn >=> requestIdMiddleware >=> sceneHandler)
     |> addOpenApi EndpointOpenApiConfigs.sceneEndpointConfig
     
 let userEndpoint: Routers.Endpoint = 
