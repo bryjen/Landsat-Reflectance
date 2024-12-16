@@ -1,0 +1,13 @@
+﻿version: "3.8"
+services:
+  app:
+    image: chronoalpha/fs_landsat_api
+    env_file:
+      - .env
+    environment:
+      - LANDSAT_API_USGS_USERNAME
+      - LANDSAT_API_USGS_APP_TOKEN
+      - LANDSAT_API_DB_CONNECTION_STRING
+      - LANDSAT_API_SIGNING_KEY
+    ports:
+      - "8080:8080"

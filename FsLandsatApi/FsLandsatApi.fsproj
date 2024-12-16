@@ -28,6 +28,8 @@
         <Compile Include="Handlers\NotFoundHandler.fs" />
         <Compile Include="Routing.fs" />
         <Compile Include="Program.fs"/>
+        <Content Include="Dockerfile" />
+        <Content Include=".dockerignore" />
     </ItemGroup>
 
     <ItemGroup>
