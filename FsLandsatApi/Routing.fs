@@ -151,6 +151,32 @@ module private EndpointOpenApiConfigs =
                 o.Summary <- "Attempts to create a target"
                 o))
         
+    let DELETE_userEndpointConfig = 
+        OpenApiConfig(
+            responseBodies = [| ResponseBody(typeof<ApiResponse<string>>) |],
+            configureOperation = (fun o ->
+                o.Tags.Clear()
+                let tag = OpenApiTag()
+                tag.Name <- "user"
+                o.Tags.Add(tag)
+                
+                let securityRequirement = OpenApiSecurityRequirement()
+                securityRequirement.Add(
+                    OpenApiSecurityScheme(
+                        Reference = OpenApiReference(
+                            Type = ReferenceType.SecurityScheme,
+                            Id = "Bearer"
+                        )
+                    ),
+                    [|  |] 
+                )
+                o.Security <- [| securityRequirement |]
+                
+                o.OperationId <- "DELETE_user"
+                o.Summary <- "Attempts to delete a user"
+                o.Description <- "The email of the account to delete is specified in the **auth token**, which is sent as part of the request."
+                o))
+        
 let notLoggedIn =
     RequestErrors.UNAUTHORIZED
         "Bearer"
@@ -168,6 +194,7 @@ let endpoints: Routers.Endpoint list = [
         Routers.route "/user/targets" (GET >=> mustBeLoggedIn >=> requestIdMiddleware >=> UserTargetsGet.handler)
         |> addOpenApi EndpointOpenApiConfigs.GET_userTargetsEndpointConfig
     ]
+    
     Routers.POST [
         Routers.route "/user" (POST >=> requestIdMiddleware >=> UserLoginPost.handler)
         |> addOpenApi EndpointOpenApiConfigs.POST_userEndpointConfig
@@ -178,8 +205,12 @@ let endpoints: Routers.Endpoint list = [
         Routers.route "/user/targets" (POST >=> mustBeLoggedIn >=> requestIdMiddleware >=> UserTargetsPost.handler)
         |> addOpenApi EndpointOpenApiConfigs.POST_userTargetsEndpointConfig
     ]
+    
     Routers.PATCH [
     ]
+    
     Routers.DELETE [
+        Routers.route "/user" (DELETE >=> mustBeLoggedIn >=> requestIdMiddleware >=> UserDelete.handler)
+        |> addOpenApi EndpointOpenApiConfigs.DELETE_userEndpointConfig
     ]
 ]

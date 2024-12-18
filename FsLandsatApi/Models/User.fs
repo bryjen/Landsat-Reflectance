@@ -4,9 +4,12 @@ open System
 
 type User =
     { Id: Guid
+      FirstName: string
+      LastName: string
       Email: string
       PasswordHash: string
-      IsEmailEnabled: bool }
+      IsEmailEnabled: bool
+      IsAdmin: bool }
 with
     override this.ToString() =
         $"[{this.Id}] {this.Email}"

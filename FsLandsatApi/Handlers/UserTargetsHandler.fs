@@ -33,6 +33,7 @@ let private getRequestId (ctx: HttpContext) =
     
     
 /// 'Target' without the attached 'UserId', to prevent user ids from being exposed to end users.
+[<CLIMutable>]
 type SimplifiedTarget =
     { Id: Guid
       Path: int

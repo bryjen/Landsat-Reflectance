@@ -32,9 +32,12 @@ let private parseUsersFromDataReader (reader: MySqlDataReader) (logger: ILogger)
         try
             let user =
                 { Id = reader.GetGuid(0)
-                  Email = reader.GetString(1)
-                  PasswordHash = reader.GetString(2)
-                  IsEmailEnabled = reader.GetBoolean(3) }
+                  FirstName = reader.GetString(1)
+                  LastName = reader.GetString(2)
+                  Email = reader.GetString(3)
+                  PasswordHash = reader.GetString(4)
+                  IsEmailEnabled = reader.GetBoolean(5)
+                  IsAdmin = reader.GetBoolean(6) }
                 
             parsedUsersList <- user :: parsedUsersList
         with
@@ -105,30 +108,39 @@ type DbUserService(
             Error ex.Message
     
     
-    member this.TryCreateUser(email: string, password: string, isEmailEnabled: bool) : Result<User, string> =
+    member this.TryCreateUser(firstName: string, lastName: string, email: string, password: string, isEmailEnabled: bool) : Result<User, string> =
         let newUser =
             { Id = Guid.NewGuid()
+              FirstName = firstName
+              LastName = lastName
               Email = email
               PasswordHash = hashPassword email password
-              IsEmailEnabled = isEmailEnabled }
+              IsEmailEnabled = isEmailEnabled
+              IsAdmin = false }
         
         try
             use connection = new MySqlConnection(dbOptions.Value.DbConnectionString)
             connection.Open()
             
-            let queryStringRaw = "INSERT INTO Users (UserGuid, Email, PasswordHash, EmailEnabled) VALUES (@userGuid, @email, @passwordHash, @emailEnabled)"
+            let queryStringRaw = "INSERT INTO Users (UserGuid, FirstName, LastName, Email, PasswordHash, EmailEnabled, IsAdmin) VALUES (@userGuid, @firstName, @lastName, @email, @passwordHash, @emailEnabled, @isAdmin)"
             
             use queryCommand = new MySqlCommand(queryStringRaw, connection)
             queryCommand.Parameters.AddWithValue("@userGuid", newUser.Id) |> ignore
+            queryCommand.Parameters.AddWithValue("@firstName", newUser.FirstName) |> ignore
+            queryCommand.Parameters.AddWithValue("@lastName", newUser.LastName) |> ignore
             queryCommand.Parameters.AddWithValue("@email", newUser.Email) |> ignore
             queryCommand.Parameters.AddWithValue("@passwordHash", newUser.PasswordHash) |> ignore
             queryCommand.Parameters.AddWithValue("@emailEnabled", newUser.IsEmailEnabled) |> ignore
+            queryCommand.Parameters.AddWithValue("@isAdmin", newUser.IsAdmin) |> ignore
             
             let queryStringToLog = queryStringRaw
                                        .Replace("@userGuid", $"\"{newUser.Id}\"")
+                                       .Replace("@firstName", $"\"{newUser.FirstName}\"")
+                                       .Replace("@lastName", $"\"{newUser.LastName}\"")
                                        .Replace("@email", $"\"{newUser.Email}\"")
                                        .Replace("@passwordHash", $"\"{newUser.PasswordHash}\"")
                                        .Replace("@emailEnabled", if newUser.IsEmailEnabled then "1" else "0")
+                                       .Replace("@isAdmin", if newUser.IsAdmin then "1" else "0")
             logger.LogInformation(queryStringToLog)
             
             let _ = queryCommand.ExecuteNonQuery()  // in case of a duplicate, will throw error instead
@@ -137,8 +149,26 @@ type DbUserService(
         | ex ->
             Error ex.Message
         
-    member this.TryDeleteUser() =
-        failwith "todo"
+        
+    member this.TryDeleteUser(email: string) =
+        try
+            use connection = new MySqlConnection(dbOptions.Value.DbConnectionString)
+            connection.Open()
+            
+            let queryStringRaw = "DELETE FROM Users WHERE Email = @Email"
+            
+            use queryCommand = new MySqlCommand(queryStringRaw, connection)
+            queryCommand.Parameters.AddWithValue("@Email", email) |> ignore
+            
+            let queryStringToLog = queryStringRaw.Replace("@Email", $"\"{email}\"")
+            logger.LogInformation(queryStringToLog)
+            
+            match queryCommand.ExecuteNonQuery() with
+            | i when i = 1 -> Ok ()
+            | _ -> Error $"Could not find a user with email \"{email}\""
+        with
+        | ex ->
+            Error ex.Message
         
     member this.TryEditUser() =
         failwith "todo"

@@ -24,6 +24,7 @@ and Metadata =
       Value: Object }
     
 
+[<CLIMutable>]
 type SimplifiedSceneData =
     { BrowseName: string option
       BrowsePath: string option
