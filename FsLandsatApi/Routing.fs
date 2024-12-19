@@ -3,6 +3,7 @@
 open FsLandsatApi.Handlers.SceneHandler
 open FsLandsatApi.Handlers.UserHandler
 open FsLandsatApi.Handlers.UserTargetsHandler
+open FsLandsatApi.Handlers.UserTargetsHandler.UserTargetsPatch
 open FsLandsatApi.Handlers.UserTargetsHandler.UserTargetsPost
 open FsLandsatApi.Middleware.RequestIdMiddleware
 open FsLandsatApi.Models.ApiResponse
@@ -19,8 +20,78 @@ open Microsoft.AspNetCore.Builder
 
 let intSchema: OpenApiSchema = OpenApiSchema(Type = "integer", Format = "int32")
 
+let stringSchema: OpenApiSchema = OpenApiSchema(Type = "string", Format = "string")
+
 [<RequireQualifiedAccess>]
 module private EndpointOpenApiConfigs =
+    let PATCH_userTargetsEndpointConfig = 
+        OpenApiConfig(
+            responseBodies = [| ResponseBody(typeof<ApiResponse<SimplifiedTarget>>) |],
+            requestBody = RequestBody(typeof<PatchTargetRequest>),
+            configureOperation = (fun o ->
+                o.Tags.Clear()
+                let tag = OpenApiTag()
+                tag.Name <- "targets"
+                o.Tags.Add(tag)
+                
+                o.OperationId <- "PATCH_target"
+                o.Summary <- "Attempts to edit a user's target"
+                
+                let securityRequirement = OpenApiSecurityRequirement()
+                securityRequirement.Add(
+                    OpenApiSecurityScheme(
+                        Reference = OpenApiReference(
+                            Type = ReferenceType.SecurityScheme,
+                            Id = "Bearer"
+                        )
+                    ),
+                    [|  |] 
+                )
+                o.Security <- [| securityRequirement |]
+                
+                let pathParam = OpenApiParameter()
+                pathParam.Name <- "target-id"
+                pathParam.In <- ParameterLocation.Query
+                pathParam.Required <- true
+                pathParam.Schema <- stringSchema
+                o.Parameters.Add(pathParam)
+                
+                o))
+    
+    let DELETE_userTargetsEndpointConfig = 
+        OpenApiConfig(
+            responseBodies = [| ResponseBody(typeof<ApiResponse<SimplifiedSceneData array>>) |],
+            configureOperation = (fun o ->
+                o.Tags.Clear()
+                let tag = OpenApiTag()
+                tag.Name <- "targets"
+                o.Tags.Add(tag)
+                
+                o.OperationId <- "DELETE_target"
+                o.Summary <- "Attempts to delete a user's target"
+                
+                
+                let securityRequirement = OpenApiSecurityRequirement()
+                securityRequirement.Add(
+                    OpenApiSecurityScheme(
+                        Reference = OpenApiReference(
+                            Type = ReferenceType.SecurityScheme,
+                            Id = "Bearer"
+                        )
+                    ),
+                    [|  |] 
+                )
+                o.Security <- [| securityRequirement |]
+                
+                let pathParam = OpenApiParameter()
+                pathParam.Name <- "target-id"
+                pathParam.In <- ParameterLocation.Query
+                pathParam.Required <- true
+                pathParam.Schema <- stringSchema
+                o.Parameters.Add(pathParam)
+                
+                o))
+    
     let sceneEndpointConfig = 
         OpenApiConfig(
             responseBodies = [| ResponseBody(typeof<ApiResponse<SimplifiedSceneData array>>) |],
@@ -47,7 +118,6 @@ module private EndpointOpenApiConfigs =
                 )
                 o.Security <- [| securityRequirement |]
                 
-                
                 let pathParam = OpenApiParameter()
                 pathParam.Name <- "path"
                 pathParam.In <- ParameterLocation.Query
@@ -67,7 +137,6 @@ module private EndpointOpenApiConfigs =
                 resultsParam.In <- ParameterLocation.Query
                 resultsParam.Schema <- intSchema
                 o.Parameters.Add(resultsParam)
-                
                 
                 o))
         
@@ -177,6 +246,32 @@ module private EndpointOpenApiConfigs =
                 o.Description <- "The email of the account to delete is specified in the **auth token**, which is sent as part of the request."
                 o))
         
+    let PATCH_userEndpointConfig = 
+        OpenApiConfig(
+            responseBodies = [| ResponseBody(typeof<ApiResponse<string>>) |],
+            requestBody = RequestBody(typeof<UserPatch.PatchUserRequest>),
+            configureOperation = (fun o ->
+                o.Tags.Clear()
+                let tag = OpenApiTag()
+                tag.Name <- "user"
+                o.Tags.Add(tag)
+                
+                let securityRequirement = OpenApiSecurityRequirement()
+                securityRequirement.Add(
+                    OpenApiSecurityScheme(
+                        Reference = OpenApiReference(
+                            Type = ReferenceType.SecurityScheme,
+                            Id = "Bearer"
+                        )
+                    ),
+                    [|  |] 
+                )
+                o.Security <- [| securityRequirement |]
+                
+                o.OperationId <- "PATCH_user"
+                o.Summary <- "Attempts to edit a user"
+                o))
+        
 let notLoggedIn =
     RequestErrors.UNAUTHORIZED
         "Bearer"
@@ -207,10 +302,18 @@ let endpoints: Routers.Endpoint list = [
     ]
     
     Routers.PATCH [
+        Routers.route "/user" (PATCH >=> mustBeLoggedIn >=> requestIdMiddleware >=> UserPatch.handler)
+        |> addOpenApi EndpointOpenApiConfigs.PATCH_userEndpointConfig
+        
+        Routers.route "/user/targets" (PATCH >=> mustBeLoggedIn >=> requestIdMiddleware >=> UserTargetsPatch.handler)
+        |> addOpenApi EndpointOpenApiConfigs.PATCH_userTargetsEndpointConfig
     ]
     
     Routers.DELETE [
         Routers.route "/user" (DELETE >=> mustBeLoggedIn >=> requestIdMiddleware >=> UserDelete.handler)
         |> addOpenApi EndpointOpenApiConfigs.DELETE_userEndpointConfig
+        
+        Routers.route "user/targets" (DELETE >=> mustBeLoggedIn >=> requestIdMiddleware >=> UserTargetsDelete.handler)
+        |> addOpenApi EndpointOpenApiConfigs.DELETE_userTargetsEndpointConfig
     ]
 ]

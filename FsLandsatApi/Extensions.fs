@@ -1,5 +1,6 @@
 ﻿module FsLandsatApi.Extensions
 
+open System.Threading.Tasks
 open Microsoft.AspNetCore.Identity
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
@@ -38,3 +39,4 @@ type IServiceCollection with
             anyOptionInvalid.contents <- true
             Array.iter (fun error -> logger.LogError(error.ToString())) errorList
         services
+        
