@@ -1,7 +1,9 @@
 ﻿module FsLandsatApi.Services.DbUserService
 
 open System
+open System.Threading.Tasks
 open FsLandsatApi.Options
+open FsLandsatApi.Utils.PasswordHashing
 open Microsoft.AspNetCore.Identity
 open Microsoft.Extensions.Logging
 open Microsoft.Extensions.Options
@@ -10,19 +12,6 @@ open Microsoft.Net.Http.Headers
 open MySql.Data.MySqlClient
 open FsLandsatApi.Models.User
 
-// TODO: Maybe find a better, 'more secure' form of hashing them passwords
-[<AutoOpen>]
-module private Hashing = 
-    let hashPassword (email: string) (password: string) =
-        let passwordHasher = PasswordHasher<string>()
-        passwordHasher.HashPassword(email, password)
-        
-    let isHashValid (email: string) (password: string) (hashedPassword: string) =
-        let passwordHasher = PasswordHasher<string>()
-        match passwordHasher.VerifyHashedPassword(email, hashedPassword, password) with
-        | PasswordVerificationResult.Success | PasswordVerificationResult.SuccessRehashNeeded -> true
-        | _ -> false
-    
 
 
 // assumes all fields of the user is fetched (SELECT * FROM ...)
@@ -84,6 +73,7 @@ type DbUserService(
         | ex ->
             Error ex.Message
     
+    
     member this.TryGetUserByCredentials(email: string, password: string) =
         try
             use connection = new MySqlConnection(dbOptions.Value.DbConnectionString)
@@ -108,7 +98,11 @@ type DbUserService(
             Error ex.Message
     
     
-    member this.TryCreateUser(firstName: string, lastName: string, email: string, password: string, isEmailEnabled: bool) : Result<User, string> =
+    member this.TryCreateUser(firstName: string,
+                              lastName: string,
+                              email: string,
+                              password: string,
+                              isEmailEnabled: bool) : Result<User, string> =
         let newUser =
             { Id = Guid.NewGuid()
               FirstName = firstName
@@ -170,5 +164,47 @@ type DbUserService(
         | ex ->
             Error ex.Message
         
-    member this.TryEditUser() =
-        failwith "todo"
+    /// <remarks>
+    /// A change in the user's ID will be ignored. The function will not error
+    /// </remarks>
+    member this.TryEditUser(transformUser: User -> User, userEmailToEdit: string) : Task<Result<User, string>> =
+        
+        // Helper method
+        let editUserInfoInDb user =
+            try
+                use connection = new MySqlConnection(dbOptions.Value.DbConnectionString)
+                connection.Open()
+                
+                let queryStringRaw =
+                    "UPDATE Users
+                     SET FirstName = @FirstName, LastName = @LastName, Email = @Email, PasswordHash = @PasswordHash, EmailEnabled = @EmailEnabled
+                     WHERE Email = @FilterEmail"
+                
+                use queryCommand = new MySqlCommand(queryStringRaw, connection)
+                queryCommand.Parameters.AddWithValue("@FirstName", user.FirstName) |> ignore
+                queryCommand.Parameters.AddWithValue("@LastName", user.LastName) |> ignore
+                queryCommand.Parameters.AddWithValue("@Email", user.Email) |> ignore
+                queryCommand.Parameters.AddWithValue("@PasswordHash", user.PasswordHash) |> ignore
+                queryCommand.Parameters.AddWithValue("@EmailEnabled", user.IsEmailEnabled) |> ignore
+                queryCommand.Parameters.AddWithValue("@FilterEmail", userEmailToEdit) |> ignore
+                
+                (*
+                let queryStringToLog = queryStringRaw.Replace("@Email", $"\"{email}\"")
+                logger.LogInformation(queryStringToLog)
+                *)
+                
+                match queryCommand.ExecuteNonQuery() with
+                | i when i = 1 -> Ok user
+                | _ -> Error $"Could not find a user with email \"{userEmailToEdit}\""
+            with
+            | ex ->
+                Error ex.Message
+        
+        
+        // Main thingy
+        task {
+            return
+                this.TryGetUserByEmail(userEmailToEdit)
+                |> Result.map transformUser
+                |> Result.bind editUserInfoInDb
+        }

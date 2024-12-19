@@ -33,5 +33,3 @@ CREATE TABLE UsersTargets (
     CONSTRAINT FK_UsersTargets_Targets FOREIGN KEY (TargetGuid) REFERENCES Targets(TargetGuid),
     PRIMARY KEY (UserGuid, TargetGuid)
 );
-
-AQAAAAIAAYagAAAAECF9UvyHlgDlJRkfOnxVaMXTXchi0v6YlUH0YIJYZyGoeEMWCnx9mkPUT8r1Y9gRig==

@@ -177,6 +177,32 @@ module private EndpointOpenApiConfigs =
                 o.Description <- "The email of the account to delete is specified in the **auth token**, which is sent as part of the request."
                 o))
         
+    let PATCH_userEndpointConfig = 
+        OpenApiConfig(
+            responseBodies = [| ResponseBody(typeof<ApiResponse<string>>) |],
+            requestBody = RequestBody(typeof<UserPatch.PatchUserRequest>),
+            configureOperation = (fun o ->
+                o.Tags.Clear()
+                let tag = OpenApiTag()
+                tag.Name <- "user"
+                o.Tags.Add(tag)
+                
+                let securityRequirement = OpenApiSecurityRequirement()
+                securityRequirement.Add(
+                    OpenApiSecurityScheme(
+                        Reference = OpenApiReference(
+                            Type = ReferenceType.SecurityScheme,
+                            Id = "Bearer"
+                        )
+                    ),
+                    [|  |] 
+                )
+                o.Security <- [| securityRequirement |]
+                
+                o.OperationId <- "PATCH_user"
+                o.Summary <- "Attempts to edit a user"
+                o))
+        
 let notLoggedIn =
     RequestErrors.UNAUTHORIZED
         "Bearer"
@@ -207,6 +233,8 @@ let endpoints: Routers.Endpoint list = [
     ]
     
     Routers.PATCH [
+        Routers.route "/user" (PATCH >=> mustBeLoggedIn >=> requestIdMiddleware >=> UserPatch.handler)
+        |> addOpenApi EndpointOpenApiConfigs.PATCH_userEndpointConfig
     ]
     
     Routers.DELETE [

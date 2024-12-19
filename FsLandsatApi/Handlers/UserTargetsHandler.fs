@@ -156,10 +156,12 @@ module UserTargetsPost =
                         (Successful.ok (json<ApiResponse<string>> asApiResponseObj)) next ctx
         }
         
+        
 module UserTargetsPatch =
     let handler (next: HttpFunc) (ctx: HttpContext) : HttpFuncResult =
         let requestId = getRequestId ctx
         failwith "todo"
+        
         
 module UserTargetsDelete =
     let handler (next: HttpFunc) (ctx: HttpContext) : HttpFuncResult =
