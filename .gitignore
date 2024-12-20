@@ -4,3 +4,9 @@ obj
 
 .env
 FsLandsatApi.sln.DotSettings.user
+
+.fake
+deploy.fsx.lock
+
+# Pipeline output directory
+build-artifacts

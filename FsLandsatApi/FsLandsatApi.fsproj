@@ -31,6 +31,8 @@
         <Compile Include="Program.fs"/>
         <Content Include="Dockerfile" />
         <Content Include=".dockerignore" />
+        <None Include="scripts\Deploy.fsx" />
+        <None Include="scripts\Versioning.fsx" />
     </ItemGroup>
 
     <ItemGroup>
