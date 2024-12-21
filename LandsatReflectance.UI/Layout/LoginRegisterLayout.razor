@@ -4,10 +4,10 @@
 
 @inherits LayoutComponentBase
 
-@inject UserInterfaceService UserInterfaceService
+@inject UiService UiService
 @inject CurrentUserService CurrentUserService
 
-<MudThemeProvider Theme="@UserInterfaceService.MudTheme" IsDarkMode="UserInterfaceService.IsDarkMode"/>
+<MudThemeProvider Theme="@UiService.MudTheme" IsDarkMode="UiService.IsDarkMode"/>
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />

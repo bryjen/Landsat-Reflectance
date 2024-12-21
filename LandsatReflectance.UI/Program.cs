@@ -51,7 +51,7 @@ builder.Services.AddScoped(sp =>
 });
 
 builder.Services.AddScoped<Wrs2AreasService>();
-builder.Services.AddScoped<UserInterfaceService>();
+builder.Services.AddScoped<UiService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<CurrentUserService>();
 

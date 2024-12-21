@@ -2,7 +2,7 @@
 @using LandsatReflectance.UI.Components
 @inherits LayoutComponentBase
 
-@inject UserInterfaceService UserInterfaceService
+@inject UiService UiService
 @inject CurrentUserService CurrentUserService
 
 @inject Wrs2AreasService Wrs2AreasService
@@ -21,7 +21,7 @@
     }
 </style>
 
-<MudThemeProvider Theme="@UserInterfaceService.MudTheme" IsDarkMode="UserInterfaceService.IsDarkMode"/>
+<MudThemeProvider Theme="@UiService.MudTheme" IsDarkMode="UiService.IsDarkMode"/>
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -115,11 +115,11 @@
 
     private void DarkModeToggle()
     {
-        UserInterfaceService.IsDarkMode = !UserInterfaceService.IsDarkMode;
+        UiService.IsDarkMode = !UiService.IsDarkMode;
     }
 
     public string DarkLightModeButtonIcon =>
-        UserInterfaceService.IsDarkMode switch
+        UiService.IsDarkMode switch
         {
             true => Icons.Material.Rounded.AutoMode,
             false => Icons.Material.Outlined.DarkMode,

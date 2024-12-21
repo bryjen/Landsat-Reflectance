@@ -1,6 +1,5 @@
 ﻿using FluentValidation;
 using LandsatReflectance.UI.Components;
-using LandsatReflectance.UI.Exceptions.Api;
 using LandsatReflectance.UI.Utils;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -156,13 +155,16 @@ public partial class Registration : ComponentBase
 
             await FullPageLoadingOverlay.ExecuteWithOverlay(workFunc, onWorkFinishedCallback);
         }
+        /*
         catch (BadRequestException badRequestException)
         {
             Snackbar.Add(badRequestException.Message, Severity.Error);
         }
         catch (ServerRequestException serverRequestException)
+         */
+        catch (Exception ex)
         {
-            Snackbar.Add(serverRequestException.Message, Severity.Error, options =>
+            Snackbar.Add(ex.Message, Severity.Error, options =>
             {
                 if (Environment.IsDevelopment())
                 {
@@ -172,7 +174,7 @@ public partial class Registration : ComponentBase
                     {
                         var parameters = new DialogParameters<ExceptionDetailsDialog>
                         {
-                            { dialog => dialog.Exception, serverRequestException }
+                            { dialog => dialog.Exception, ex }
                         };
 
                         var dialogOptions = new DialogOptions

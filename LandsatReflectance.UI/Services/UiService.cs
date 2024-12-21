@@ -4,7 +4,7 @@ namespace LandsatReflectance.UI.Services;
 
 /// Keeps track of variables across different web pages
 
-public class UserInterfaceService
+public class UiService
 {
     private MudTheme? m_mudTheme;
     public MudTheme MudTheme

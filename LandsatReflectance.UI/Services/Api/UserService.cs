@@ -3,9 +3,8 @@ using System.Text.Json;
 // using LandsatReflectance.Common.Models;
 // using LandsatReflectance.Common.Models.Request;
 // using LandsatReflectance.Common.Models.ResponseModels;
-using LandsatReflectance.UI.Exceptions;
-using LandsatReflectance.UI.Exceptions.Api;
 using LandsatReflectance.UI.Pages.LoginRegistration;
+using OneOf.Types;
 
 namespace LandsatReflectance.UI.Services.Api;
 
@@ -130,5 +129,10 @@ public class UserService
             throw new ServerRequestException(exception);
         }
          */
+    }
+
+    public static void TryParseData<T>()
+    {
+        throw new NotImplementedException();
     }
 }
