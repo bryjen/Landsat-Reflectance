@@ -25,6 +25,12 @@ public class UiService
 
     public bool IsDarkMode { get; set; } = true;
 
+    public bool IsDrawerExpanded { get; set; } = true;
+
+
+    
+    
+
     private readonly Typography m_typography = new()
     {
         Default = new Default
@@ -32,7 +38,6 @@ public class UiService
             FontFamily = [ "JetBrains Mono", "monospace" ]
         }
     };
-    
     
     private readonly PaletteLight _lightPalette = new()
     {
@@ -48,11 +53,11 @@ public class UiService
     {
         Primary = "#7e6fff",
         Surface = "#1e1e2d",
-        Background = "#1a1a27",
+        Background = "#151b23",
         BackgroundGray = "#151521",
         AppbarText = "#92929f",
-        AppbarBackground = "rgba(26,26,39,0.8)",
-        DrawerBackground = "#1a1a27",
+        AppbarBackground = "#151b23",
+        DrawerBackground = "#151b23",
         ActionDefault = "#74718e",
         ActionDisabled = "#9999994d",
         ActionDisabledBackground = "#605f6d4d",

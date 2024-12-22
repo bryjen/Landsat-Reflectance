@@ -29,29 +29,33 @@
 <FullPageLoadingOverlay @ref="@m_fullPageLoadingOverlay" />
 
 <div class="page mud-layout">
-     <main>
+    <main>
         <MudLayout>
+            @*
             <MudAppBar Elevation="1" Dense="true">
-                <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" 
+                <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
                                OnClick="@((e) => DrawerToggle())"
                                Class="mr-6"/>
                 <div alt="Flat Earthers Logo" class="logo mx-2"></div>
                 <MudText Typo="Typo.body1" Class="mx-2">Flat Earthers</MudText>
-                
+
                 <MudSpacer/>
 
                 <MudIconButton Icon="@(DarkLightModeButtonIcon)" Color="Color.Inherit" OnClick="@DarkModeToggle"
                                Class="mx-2"/>
-                
+
                 @RenderAccountInformation
-                
-@*
+
                 <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Color="Color.Inherit" Edge="Edge.End"/>
-*@
             </MudAppBar>
-            <MudDrawer @bind-Open="m_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
-                <NavMenu/>
-            </MudDrawer>
+*@
+        
+            <Appbar IsDarkMode="@UiService.IsDarkMode"
+                    DrawerToggle="@(EventCallback.Factory.Create(this, DrawerToggle))"
+                    DarkModeToggle="@(EventCallback.Factory.Create(this, DarkModeToggle))" />
+
+            <NavMenu IsDrawerExpanded="@UiService.IsDrawerExpanded"/>
+
             <MudMainContent>
                 <CascadingValue Value="@m_fullPageLoadingOverlay">
                     @Body
@@ -106,22 +110,21 @@
          */
     }
 
-    private bool m_drawerOpen = false;
-    
-    private void DrawerToggle()
-    {
-        m_drawerOpen = !m_drawerOpen;
-    }
-
-    private void DarkModeToggle()
-    {
-        UiService.IsDarkMode = !UiService.IsDarkMode;
-    }
-
     public string DarkLightModeButtonIcon =>
         UiService.IsDarkMode switch
         {
             true => Icons.Material.Rounded.AutoMode,
             false => Icons.Material.Outlined.DarkMode,
         };
+
+
+    public void DrawerToggle()
+    {
+        UiService.IsDrawerExpanded = !UiService.IsDrawerExpanded;
+    }
+
+    public void DarkModeToggle()
+    {
+        UiService.IsDarkMode = !UiService.IsDarkMode;
+    }
 }

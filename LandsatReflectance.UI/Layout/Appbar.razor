@@ -1,0 +1,23 @@
+﻿<MudAppBar Elevation="0" Dense="true">
+    <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+                   OnClick="@(_ => DrawerToggle.InvokeAsync())"
+                   Class="mr-6"/>
+
+    @*
+     <div alt="Flat Earthers Logo" class="logo mx-2"></div>
+     <MudText Typo="Typo.body1" Class="mx-2">Flat Earthers</MudText>
+*@
+
+     <MudSpacer/>
+
+     <MudIconButton Icon="@(DarkLightModeButtonIcon)" Color="Color.Inherit" OnClick="@DarkModeToggle"
+                    Class="mx-2"/>
+
+     @*
+     @RenderAccountInformation
+*@
+
+     @*
+    <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Color="Color.Inherit" Edge="Edge.End"/>
+    *@
+</MudAppBar>

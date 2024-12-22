@@ -14,3 +14,6 @@ LandsatReflectance.Build/LandsatReflectance.Build.csproj.DotSettings
 
 # Pipeline output directory
 build-artifacts
+
+# LandsatReflectance.UI
+LandsatReflectance.UI/wwwroot/css/app.min.css
