@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using LandsatReflectance.UI;
 using LandsatReflectance.UI.Services;
 using LandsatReflectance.UI.Services.Api;
+using LandsatReflectance.UI.Utils;
+using Microsoft.Extensions.Options;
 using MudBlazor.Services;
 using ProtoBuf.Meta;
 
@@ -19,6 +21,7 @@ var model = RuntimeTypeModel.Default;
 model.CompileInPlace();
 
 
+
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
 builder.RootComponents.Add<App>("#app");
@@ -27,6 +30,7 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 // Fuck no easy way to hide this thing in wasm
 // TODO: Change & Restrict before making repo public
 builder.Services.AddBlazorGoogleMaps("AIzaSyCDocP3wfMPBO_0YWpaxlZiISEHwgStdQU");
+
 
 builder.Services.AddSingleton(_ =>
 {
@@ -41,14 +45,16 @@ builder.Services.AddSingleton(_ =>
     return jsonSerializerOptions;
 });
 
+
 builder.Services.AddScoped(sp =>
 {
-    const string proxyServerBaseUri = "https://localhost:7280/";
+    const string proxyServerBaseUri = "https://fs-landsat-api.onrender.com/";
     var httpClient = new HttpClient();
     httpClient.BaseAddress = new Uri(proxyServerBaseUri);
 
     return httpClient;
 });
+
 
 builder.Services.AddScoped<Wrs2AreasService>();
 builder.Services.AddScoped<UiService>();

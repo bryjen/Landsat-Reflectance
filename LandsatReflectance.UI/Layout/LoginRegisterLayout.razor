@@ -1,9 +1,11 @@
 ﻿@using LandsatReflectance.UI.Services
 @using MudBlazor.Utilities
 @using LandsatReflectance.UI.Components
+@using LandsatReflectance.UI.Utils
 
 @inherits LayoutComponentBase
 
+@inject NavigationManager NavigationManager
 @inject UiService UiService
 @inject CurrentUserService CurrentUserService
 
@@ -31,11 +33,21 @@
          <MudLayout>
              <MudAppBar Elevation="1">
                  <div style="@m_mudAppBarDivStyles">
-                     
-                     <div class="logo" alt="Flat Earthers Logo"></div>
+
+                     <div class="flex items-center gap-2 h-full">
+                         <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
+                                        DropShadow="@false"
+                                        Variant="Variant.Filled"
+                                        Color="Color.Surface"
+                                        OnClick="@NavigateBackHome"
+                                        Class="h-fit mr-6"
+                                        Style="color: #92929f"/>
+
+                         <div class="logo" alt="Flat Earthers Logo"></div>
+                     </div>
 
                      <MudText Typo="Typo.caption" Class="ml-3">Flat Earthers</MudText>
-                     
+
                      @*
                      @if (CurrentUserService.User is null)
                      {
@@ -140,4 +152,18 @@
         .Build();
 
     private FullPageLoadingOverlay m_fullPageLoadingOverlay = new();
+
+    private async Task NavigateBackHome()
+    {
+        await m_fullPageLoadingOverlay.ExecuteWithOverlay(
+            async () =>
+            {
+                await Task.Delay(TimeSpan.FromSeconds(Rand.GeneratePageSwitchDelayTime()));
+            },
+            () =>
+            {
+                NavigationManager.NavigateTo("/");
+                return Task.CompletedTask;
+            });
+    }
 }

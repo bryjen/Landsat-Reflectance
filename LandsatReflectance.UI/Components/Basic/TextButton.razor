@@ -1,0 +1,18 @@
+﻿<MudButton
+    Size="Size.Small"
+    Variant="Variant.Filled"
+    DropShadow="@false"
+    Class="bg-[#333a45]"
+    Style="border: 1px solid #353c44"
+    OnClick="@OnClick">
+    @Text
+</MudButton>
+
+@code
+{
+    [Parameter]
+    public required string Text { get; set; }
+
+    [Parameter]
+    public required EventCallback OnClick { get; set; }
+}

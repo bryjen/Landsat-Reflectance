@@ -19,7 +19,7 @@ public partial class Appbar : ComponentBase
     private string DarkLightModeButtonIcon =>
         IsDarkMode switch
         {
-            true => Icons.Material.Rounded.AutoMode,
-            false => Icons.Material.Outlined.DarkMode,
+            false => Icons.Material.Outlined.WbSunny,
+            true => Icons.Material.Outlined.DarkMode,
         };
 }

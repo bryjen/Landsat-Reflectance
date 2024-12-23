@@ -25,6 +25,9 @@ public partial class Login : ComponentBase
     [Inject]
     public required UserService UserService { get; set; }
     
+    [Inject]
+    public required CurrentUserService CurrentUserService { get; set; }
+    
     
     [CascadingParameter]
     public required FullPageLoadingOverlay FullPageLoadingOverlay { get; set; }
@@ -83,61 +86,33 @@ public partial class Login : ComponentBase
         m_isProcessing = true;
         StateHasChanged();
         
-        try
-        {
-            await UserService.LoginAsync(m_email, m_password);
-            
-            var workFunc = async () =>
-            {
-                await Task.Delay(TimeSpan.FromSeconds(Rand.GeneratePageSwitchDelayTime()));
-            };
-            
-            var onWorkFinishedCallback = () =>
-            {
-                NavigationManager.NavigateTo("/");
-                Snackbar.Add("Successfully logged in.", Severity.Info);
-                return Task.CompletedTask;
-            };
-            
-            m_isProcessing = false;
-            StateHasChanged();
+        
+        var authTokenResult = await UserService.LoginAsync(m_email, m_password);
+        var loginResult = authTokenResult.Bind(CurrentUserService.TryInitCurrentUser);
 
-            await FullPageLoadingOverlay.ExecuteWithOverlay(workFunc, onWorkFinishedCallback);
-        }
-        /*
-        catch (BadRequestException badRequestException)
-        {
-            Snackbar.Add(badRequestException.Message, Severity.Error);
-        }
-        catch (ServerRequestException serverRequestException)
-         */
-        catch (Exception ex)
-        {
-            Snackbar.Add(ex.Message, Severity.Error, options =>
+        await loginResult.Match<Task<Unit>, Unit, string>(
+            async _ =>  // on successful login
             {
-                if (Environment.IsDevelopment())
-                {
-                    options.Action = "More information";
-                    options.ActionVariant = Variant.Text;
-                    options.Onclick = _ =>
+                m_isProcessing = false;
+                StateHasChanged();
+
+                await FullPageLoadingOverlay.ExecuteWithOverlay(
+                    async () => await Task.Delay(TimeSpan.FromSeconds(Rand.GeneratePageSwitchDelayTime())),
+                    () =>
                     {
-                        var parameters = new DialogParameters<ExceptionDetailsDialog>
-                        {
-                            { dialog => dialog.Exception, ex }
-                        };
-
-                        var dialogOptions = new DialogOptions
-                        {
-                            BackdropClick = false,
-                            MaxWidth = MaxWidth.Large,
-                            FullWidth = true
-                        };
-
-                        DialogService.Show<ExceptionDetailsDialog>(null, parameters, dialogOptions);
+                        NavigationManager.NavigateTo("/");
+                        Snackbar.Add("Successfully logged in.", Severity.Info);
                         return Task.CompletedTask;
-                    };
-                }
+                    });
+                return Unit.Default;
+            }, 
+            errorMsg =>  // on unsuccessful login
+            {
+                m_isProcessing = false;
+                StateHasChanged();
+                
+                Snackbar.Add(errorMsg, Severity.Error);
+                return Task.FromResult(Unit.Default);
             });
-        }
     }
 }

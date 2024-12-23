@@ -35,7 +35,8 @@ public class UiService
     {
         Default = new Default
         {
-            FontFamily = [ "JetBrains Mono", "monospace" ]
+            // FontFamily = [ "JetBrains Mono", "monospace" ]
+            FontFamily = [ "Roboto", "sans-serif" ]
         }
     };
     
@@ -51,13 +52,13 @@ public class UiService
 
     private readonly PaletteDark _darkPalette = new()
     {
-        Primary = "#7e6fff",
-        Surface = "#1e1e2d",
-        Background = "#151b23",
+        Primary = "#478be6",
+        Surface = "#212830",
+        Background = "#212830",
         BackgroundGray = "#151521",
         AppbarText = "#92929f",
         AppbarBackground = "#151b23",
-        DrawerBackground = "#151b23",
+        DrawerBackground = "#2a313c",
         ActionDefault = "#74718e",
         ActionDisabled = "#9999994d",
         ActionDisabledBackground = "#605f6d4d",

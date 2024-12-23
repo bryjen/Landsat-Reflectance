@@ -1,9 +1,30 @@
-﻿<MudDrawer @bind-Open="@IsDrawerExpanded" 
+﻿@using LandsatReflectance.UI.Components.Basic
+<MudDrawer @bind-Open="@IsDrawerExpanded" 
            ClipMode="DrawerClipMode.Never" 
            Variant="@DrawerVariant.Mini"
            Elevation="0" 
+           Class="overflow-hidden"
            Style="border-right: 1px solid #353c44">
     <MudNavMenu>
+        
+        @if (IsDrawerExpanded)
+        {
+            @*
+            @RenderAccountInformation("Bryan Carlo", "Miguel", "miguelbryancarlo3434@gmail.com")
+*@
+            @RenderNotLoggedInInfo()
+        }
+
+        <br/>
+        <br/>
+        <br/>
+
+        @if (IsDrawerExpanded)
+        {
+            <p class="pl-4 text-sm font-bold">
+                Platform
+            </p>
+        }
         <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">
             Home
         </MudNavLink>
@@ -16,14 +37,34 @@
         <MudNavLink Href="/weather" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">
             Weather
         </MudNavLink>
-        <MudDivider Class="my-2" />
-        
-        @if (IsDrawerExpanded)
-        {
-            <MudStack Row="true">
-                <MudSpacer/>
-                <MudText>Version @this.GetType().Assembly.GetName().Version?.ToString(3)</MudText>
-            </MudStack>
-        }
     </MudNavMenu>
 </MudDrawer>
+
+@code {
+
+    private RenderFragment RenderAccountInformation(string firstName, string lastName, string email) => __builder =>
+    {
+        <div class="flex items-center justify-between gap-2 mt-6 px-2 py-2 hover:bg-[#2f3540]">
+            <MudAvatar Size="Size.Small" Color="Color.Primary">BM</MudAvatar>
+
+            <div class="select-none">
+                <p class="text-[0.8rem] font-bold">Bryan Carlo Miguel</p>
+                <p class="text-[0.65rem]">miguelbryancarlo3434@gmail.com</p>
+            </div>
+
+            <MudIcon Size="Size.Small" Icon="@Icons.Material.Outlined.ArrowRight" />
+        </div>
+    };
+
+    private RenderFragment RenderNotLoggedInInfo() => __builder =>
+    {
+        <div class="flex flex-col mt-6 px-2 py-2 items-center justify-center">
+            <p class="font-bold">You are not currently logged in</p>
+            <div class="flex gap-2">
+                <TextButton Text="Login" OnClick="@NavigateToLogin" />
+                <TextButton Text="Register" OnClick="@NavigateToRegistration" />
+            </div>
+        </div>
+    };
+
+}

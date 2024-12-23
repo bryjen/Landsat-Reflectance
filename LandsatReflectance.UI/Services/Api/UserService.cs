@@ -1,9 +1,12 @@
-﻿using System.Text;
+﻿using System.Net.Mime;
+using System.Text;
 using System.Text.Json;
+using LandsatReflectance.UI.Models;
 // using LandsatReflectance.Common.Models;
 // using LandsatReflectance.Common.Models.Request;
 // using LandsatReflectance.Common.Models.ResponseModels;
 using LandsatReflectance.UI.Pages.LoginRegistration;
+using LandsatReflectance.UI.Utils;
 using OneOf.Types;
 
 namespace LandsatReflectance.UI.Services.Api;
@@ -27,58 +30,43 @@ public class UserService
         m_currentUserService = currentUserService;
     }
 
-    public async Task LoginAsync(string email, string password)
+    public async Task<Result<string, string>> LoginAsync(string email, string password)
     {
-        /*
-        var userLoginRequest = new UserLoginInfo
+        var credentialsDict = new Dictionary<string, string>
         {
-            Email = email,
-            Password = password
+            { "email", email },
+            { "password", password },
         };
 
         try
         {
-            using var contents = new StringContent(JsonSerializer.Serialize(userLoginRequest, m_jsonSerializerOptions), Encoding.UTF8, "application/json");
-            var response = await m_httpClient.PostAsync("Authentication/Login", contents);
-            
-            var stream = await response.Content.ReadAsStreamAsync();
-            var registerResponse = await JsonSerializer.DeserializeAsync<ResponseBase<UserWithToken>>(stream, m_jsonSerializerOptions);
-            
-            if (registerResponse is null)
+            using var requestBody = new StringContent(JsonSerializer.Serialize(credentialsDict, m_jsonSerializerOptions));
+            var response = await m_httpClient.PostAsync("user", requestBody);
+
+            var responseBody = await response.Content.ReadAsStringAsync();
+            var apiResponse = JsonSerializer.Deserialize<ApiResponse<string>>(responseBody);
+
+            if (apiResponse is null)
             {
-                var innerException = new Exception("The deserialized response from the server is null.");
-                throw new ServerRequestException(innerException);
+                return Result<string, string>.FromError("Response from the server is null");
             }
 
-            if (registerResponse.ErrorMessage is not null)
+            if (apiResponse.ErrorMessage is not null)
             {
-                throw new BadRequestException(registerResponse.ErrorMessage);
+                return Result<string, string>.FromError(apiResponse.ErrorMessage);
             }
 
-            if (registerResponse.Data is null)
-            {
-                var innerException = new NoResponseException("The deserialized response from the server is null.");
-                throw new ServerRequestException(innerException);
-            }
-
-            var userAndToken = registerResponse.Data;
-            m_currentUserService.InitCurrentUser(userAndToken.User, userAndToken.Token);
-        }
-        catch (ServerRequestException)
-        {
-            throw;
-        }
-        catch (BadRequestException)
-        {
-            throw;
+            var authToken = apiResponse.Data;
+            return Result<string, string>.FromOk(authToken);
         }
         catch (Exception exception)
         {
-            // Wrap as 'ServerRequestException' by default
-            throw new ServerRequestException(exception);
+            m_logger.LogError(exception.ToString());
+            return Result<string, string>.FromError("An unknown error occurred");
         }
     }
 
+    /*
     public async Task RegisterAsync(UserModel userModel)
     {
         var userLoginRequest = new UserLoginInfo
@@ -91,10 +79,10 @@ public class UserService
         {
             using var contents = new StringContent(JsonSerializer.Serialize(userLoginRequest, m_jsonSerializerOptions), Encoding.UTF8, "application/json");
             var response = await m_httpClient.PostAsync("Authentication/Register", contents);
-            
+
             var stream = await response.Content.ReadAsStreamAsync();
             var registerResponse = await JsonSerializer.DeserializeAsync<ResponseBase<UserWithToken>>(stream, m_jsonSerializerOptions);
-            
+
             if (registerResponse is null)
             {
                 var innerException = new Exception("The deserialized response from the server is null.");
@@ -128,11 +116,6 @@ public class UserService
             // Wrap as 'ServerRequestException' by default
             throw new ServerRequestException(exception);
         }
+    }
          */
-    }
-
-    public static void TryParseData<T>()
-    {
-        throw new NotImplementedException();
-    }
 }

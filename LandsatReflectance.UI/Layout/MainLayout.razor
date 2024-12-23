@@ -54,7 +54,9 @@
                     DrawerToggle="@(EventCallback.Factory.Create(this, DrawerToggle))"
                     DarkModeToggle="@(EventCallback.Factory.Create(this, DarkModeToggle))" />
 
-            <NavMenu IsDrawerExpanded="@UiService.IsDrawerExpanded"/>
+            <NavMenu 
+                IsDrawerExpanded="@UiService.IsDrawerExpanded"
+                FullPageLoadingOverlay="@m_fullPageLoadingOverlay" />
 
             <MudMainContent>
                 <CascadingValue Value="@m_fullPageLoadingOverlay">
