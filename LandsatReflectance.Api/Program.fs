@@ -92,6 +92,16 @@ let configureServices (services: IServiceCollection) =
     services.ConfigureHttpJsonOptions(fun jsonOptions ->
         jsonOptions.SerializerOptions.PropertyNameCaseInsensitive <- true
         jsonOptions.SerializerOptions.WriteIndented <- true) |> ignore
+    
+    // TODO: Add a specific policy once the UI is deployed
+    services.AddCors(fun options ->
+        options.AddPolicy("AllowAll", fun policyOptions ->
+            policyOptions.AllowAnyOrigin() |> ignore
+            policyOptions.AllowAnyMethod() |> ignore
+            policyOptions.AllowAnyHeader() |> ignore
+            ())
+        ())
+    |> ignore
         
     // Configure http clients
     services.AddHttpClient<UsgsHttpClient>(fun httpClient ->
@@ -117,7 +127,7 @@ let configureServices (services: IServiceCollection) =
 let configureOpenApi (services: IServiceCollection) =
     services.AddSwaggerGen(fun config ->
         let openApiInfo = OpenApiInfo()
-        openApiInfo.Title <- "FsLandsaApi"
+        openApiInfo.Title <- "FsLandsatApi"
         openApiInfo.Version <- "0.1.0"
         openApiInfo.Description <- "PLACEHOLDER"
         config.SwaggerDoc("v1", openApiInfo)
@@ -137,7 +147,9 @@ let configureOpenApi (services: IServiceCollection) =
 
 
 let configureApp (app: IApplicationBuilder) =
-    app.UseRouting()
+    app.UseCors("AllowAll")
+        
+       .UseRouting()
        .UseSwagger()
        .UseSwaggerUI()
        
