@@ -24,7 +24,7 @@ jobs:
 
     - name: Build the Docker image
       run: |
-        docker build  -f FsLandsatApi/Dockerfile --no-cache -t chronoalpha/fs_landsat_api .
+        docker build -f LandsatReflectance.Api/Dockerfile --no-cache -t chronoalpha/fs_landsat_api .
     
     - name: Push the Docker image
       run: |
