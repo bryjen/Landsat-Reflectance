@@ -9,10 +9,14 @@
         
         @if (IsDrawerExpanded)
         {
-            @*
-            @RenderAccountInformation("Bryan Carlo", "Miguel", "miguelbryancarlo3434@gmail.com")
-*@
-            @RenderNotLoggedInInfo()
+            if (CurrentUserService.IsAuthenticated)
+            {
+                @RenderAccountInformation(CurrentUserService.FirstName, CurrentUserService.LastName, CurrentUserService.Email)
+            }
+            else
+            {
+                @RenderNotLoggedInInfo()
+            }
         }
 
         <br/>
@@ -44,16 +48,60 @@
 
     private RenderFragment RenderAccountInformation(string firstName, string lastName, string email) => __builder =>
     {
-        <div class="flex items-center justify-between gap-2 mt-6 px-2 py-2 hover:bg-[#2f3540]">
-            <MudAvatar Size="Size.Small" Color="Color.Primary">BM</MudAvatar>
+        var initials = $"{firstName.First()}{lastName.First()}".ToUpper();
+        var fullName = $"{firstName} {lastName}";
+        
+        <MudMenu AnchorOrigin="@Origin.CenterRight"
+                 TransformOrigin="@Origin.CenterLeft"
+                 Class="w-full">
+            <ActivatorContent>
+                <div class="w-full flex items-center justify-between gap-2 mt-6 px-2 py-2 hover:bg-[#2f3540]">
+                    <MudAvatar Size="Size.Small" Color="Color.Primary">@initials</MudAvatar>
 
-            <div class="select-none">
-                <p class="text-[0.8rem] font-bold">Bryan Carlo Miguel</p>
-                <p class="text-[0.65rem]">miguelbryancarlo3434@gmail.com</p>
-            </div>
+                    <div class="select-none">
+                        <p class="text-[0.8rem] font-bold">@fullName</p>
+                        <p class="text-[0.65rem]">@email</p>
+                    </div>
 
-            <MudIcon Size="Size.Small" Icon="@Icons.Material.Outlined.ArrowRight" />
-        </div>
+                    <MudIcon Size="Size.Small" Icon="@Icons.Material.Outlined.ArrowRight" />
+                </div>
+            </ActivatorContent>
+            
+            <ChildContent>
+                <div class="flex flex-col gap-3 px-2 py-2 bg-[#2a313c] border border-[#353c44]">
+                    <div class="flex items-center justify-between gap-2 px-2">
+                        <MudAvatar Size="Size.Small" Color="Color.Primary">@initials</MudAvatar>
+
+                        <div class="select-none">
+                            <p class="text-[0.8rem] font-bold">@fullName</p>
+                            <p class="text-[0.65rem]">@email</p>
+                        </div>
+                    </div>
+                    
+                    <MudDivider/>
+                    
+                    <MudButton StartIcon="@Icons.Material.Filled.AccountCircle" 
+                               Size="@Size.Small"
+                               Class="flex justify-start pl-2">
+                        Account
+                    </MudButton>
+                    
+                    <MudButton StartIcon="@Icons.Material.Filled.Settings"
+                               Size="@Size.Small"
+                               Class="flex justify-start pl-2">
+                        Settings
+                    </MudButton>
+                    
+                    <MudDivider/>
+
+                    <MudButton StartIcon="@Icons.Material.Filled.Logout"
+                               Size="@Size.Small"
+                               Class="flex justify-start pl-2">
+                        Logout
+                    </MudButton>
+                </div>
+            </ChildContent>
+        </MudMenu>
     };
 
     private RenderFragment RenderNotLoggedInInfo() => __builder =>

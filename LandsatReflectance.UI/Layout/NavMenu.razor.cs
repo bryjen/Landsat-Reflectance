@@ -8,6 +8,9 @@ namespace LandsatReflectance.UI.Layout;
 public partial class NavMenu : ComponentBase
 {
     [Inject]
+    public required CurrentUserService CurrentUserService { get; set; }
+    
+    [Inject]
     public required NavigationManager NavigationManager { get; set; }
     
     
@@ -45,4 +48,6 @@ public partial class NavMenu : ComponentBase
                 return Task.CompletedTask;
             });
     }
+    
+    
 }

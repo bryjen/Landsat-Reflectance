@@ -40,11 +40,11 @@ public class UserService
 
         try
         {
-            using var requestBody = new StringContent(JsonSerializer.Serialize(credentialsDict, m_jsonSerializerOptions));
+            using var requestBody = new StringContent(JsonSerializer.Serialize(credentialsDict, m_jsonSerializerOptions), Encoding.UTF8, "application/json");
             var response = await m_httpClient.PostAsync("user", requestBody);
 
             var responseBody = await response.Content.ReadAsStringAsync();
-            var apiResponse = JsonSerializer.Deserialize<ApiResponse<string>>(responseBody);
+            var apiResponse = JsonSerializer.Deserialize<ApiResponse<string>>(responseBody, m_jsonSerializerOptions);
 
             if (apiResponse is null)
             {

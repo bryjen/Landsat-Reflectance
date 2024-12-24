@@ -30,11 +30,47 @@ public class CurrentUserService
 
         var handler = new JwtSecurityTokenHandler();
         var asJwtToken = handler.ReadJwtToken(authToken);
+
         
+        var givenNameClaim = asJwtToken.Claims.FirstOrDefault(claim => claim.Type == JwtRegisteredClaimNames.GivenName);
+        if (givenNameClaim is null)
+        {
+            m_logger.LogInformation($"Could not find the claim \"{JwtRegisteredClaimNames.GivenName}\".");
+            return Result<Unit, string>.FromError("Failed to authenticate user");
+        }
+        FirstName = givenNameClaim.Value;
+        
+        
+        var familyNameClaim = asJwtToken.Claims.FirstOrDefault(claim => claim.Type == JwtRegisteredClaimNames.FamilyName);
+        if (familyNameClaim is null)
+        {
+            m_logger.LogInformation($"Could not find the claim \"{JwtRegisteredClaimNames.FamilyName}\".");
+            return Result<Unit, string>.FromError("Failed to authenticate user");
+        }
+        LastName = familyNameClaim.Value;
+        
+        
+        var emailClaim = asJwtToken.Claims.FirstOrDefault(claim => claim.Type == JwtRegisteredClaimNames.Email);
+        if (emailClaim is null)
+        {
+            m_logger.LogInformation($"Could not find the claim \"{JwtRegisteredClaimNames.Email}\".");
+            return Result<Unit, string>.FromError("Failed to authenticate user");
+        }
+        Email = emailClaim.Value;
         
         
         IsAuthenticated = true;
 
+        return Result<Unit, string>.FromOk(Unit.Default);
+    }
+
+    public Result<Unit, string> TryLogoutUser()
+    {
+        if (IsAuthenticated)
+        {
+            return Result<Unit, string>.FromOk(Unit.Default);
+        }
+        
         return Result<Unit, string>.FromOk(Unit.Default);
     }
 }
