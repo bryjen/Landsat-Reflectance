@@ -2,7 +2,7 @@
 WORKDIR /src
 COPY . .
 RUN npm install tailwindcss postcss autoprefixer postcss-cli
-RUN npx tailwindcss -i /src/wwwroot/css/app.css -o /src/wwwroot/css/app.min.css
+RUN npx tailwindcss -i /src/LandsatReflectance.UI/wwwroot/css/app.css -o /src/LandsatReflectance.UI/wwwroot/css/app.min.css
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
