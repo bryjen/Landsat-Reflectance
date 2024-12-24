@@ -1,5 +1,6 @@
 ﻿using FluentValidation;
 using LandsatReflectance.UI.Components;
+using LandsatReflectance.UI.Services;
 using LandsatReflectance.UI.Utils;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -57,11 +58,17 @@ public class UserModelValidator : AbstractValidator<UserModel>
 
 public partial class Registration : ComponentBase
 {
+    [Inject]
+    public required CurrentUserService CurrentUserService { get; set; }
+    
+    
     [Parameter]
     public string Email { get; set; } = string.Empty;
+    
 
     [CascadingParameter]
     public required FullPageLoadingOverlay FullPageLoadingOverlay { get; set; }
+    
     
     private MudForm m_mudForm = new();
     private UserModelValidator m_userModelValidator = new();
@@ -133,62 +140,35 @@ public partial class Registration : ComponentBase
 
         m_isSendingData = true;
         StateHasChanged();
+
         
-        // await Task.Delay(TimeSpan.FromSeconds(Rand.GenerateFormDelayTime()));
-        try
-        {
-            // await UserService.RegisterAsync(m_userModel);
-            
-            var workFunc = async () =>
+        var registrationResult = await ApiUserService.RegisterAsync(m_userModel.Email, m_userModel.FirstName, m_userModel.LastName, m_userModel.Password, true);
+        var authResult = registrationResult.Bind(CurrentUserService.TryInitFromAuthToken);
+        
+        await authResult.Match<Task<Unit>, Unit, string>(
+            async _ =>
             {
-                await Task.Delay(TimeSpan.FromSeconds(Rand.GeneratePageSwitchDelayTime()));
-            };
-            var onWorkFinishedCallback = () =>
-            {
-                NavigationManager.NavigateTo("/");
-                Snackbar.Add("Successfully registered.", Severity.Info);
-                return Task.CompletedTask;
-            };
-            
-            m_isSendingData = false;
-            StateHasChanged();
-
-            await FullPageLoadingOverlay.ExecuteWithOverlay(workFunc, onWorkFinishedCallback);
-        }
-        /*
-        catch (BadRequestException badRequestException)
-        {
-            Snackbar.Add(badRequestException.Message, Severity.Error);
-        }
-        catch (ServerRequestException serverRequestException)
-         */
-        catch (Exception ex)
-        {
-            Snackbar.Add(ex.Message, Severity.Error, options =>
-            {
-                if (Environment.IsDevelopment())
-                {
-                    options.Action = "More information";
-                    options.ActionVariant = Variant.Text;
-                    options.Onclick = _ =>
+                m_isSendingData = false;
+                StateHasChanged();
+                
+                await FullPageLoadingOverlay.ExecuteWithOverlay(
+                   async  () =>
                     {
-                        var parameters = new DialogParameters<ExceptionDetailsDialog>
-                        {
-                            { dialog => dialog.Exception, ex }
-                        };
-
-                        var dialogOptions = new DialogOptions
-                        {
-                            BackdropClick = false,
-                            MaxWidth = MaxWidth.Large,
-                            FullWidth = true
-                        };
-
-                        DialogService.Show<ExceptionDetailsDialog>(null, parameters, dialogOptions);
+                        await Task.Delay(TimeSpan.FromSeconds(Rand.GeneratePageSwitchDelayTime()));
+                    },
+                   () =>
+                   {
+                        NavigationManager.NavigateTo("/");
+                        Snackbar.Add("Successfully registered.", Severity.Info);
                         return Task.CompletedTask;
-                    };
-                }
+                   });
+                
+                return Unit.Default;
+            },
+            errorMessage =>
+            {
+                Snackbar.Add(errorMessage, Severity.Error);
+                return Task.FromResult(Unit.Default);
             });
-        }
     }
 }

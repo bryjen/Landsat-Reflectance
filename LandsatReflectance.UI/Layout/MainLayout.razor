@@ -1,8 +1,10 @@
 ﻿@using LandsatReflectance.UI.Services
 @using LandsatReflectance.UI.Components
+@using LandsatReflectance.UI.Utils
 @inherits LayoutComponentBase
 
 @inject UiService UiService
+@inject ISnackbar Snackbar
 @inject CurrentUserService CurrentUserService
 
 @inject Wrs2AreasService Wrs2AreasService
@@ -99,7 +101,18 @@
 
     private FullPageLoadingOverlay m_fullPageLoadingOverlay = new();
 
-    
+    protected override void OnInitialized()
+    {
+        var authResult = CurrentUserService.TryInitFromLocalStorage();
+        authResult.Match(
+            _ => Unit.Default,
+            errorMsg =>
+            {
+                Snackbar.Add(errorMsg, Severity.Error);
+                return Unit.Default;
+            });
+    }
+
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
     {
         /*

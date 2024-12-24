@@ -1,20 +1,108 @@
 ﻿@page "/"
+@using System.Globalization
+@using LandsatReflectance.UI.Models
 
 <PageTitle>Home</PageTitle>
 
 
-<MudText Typo="Typo.h3" GutterBottom="true">Hello, world!</MudText>
-<MudText Class="mb-8">
-    Welcome to your new app, powered by MudBlazor and the .NET 8 Template!
-</MudText>
+@if (CurrentUserService.IsAuthenticated)
+{
+    <div class="pa-4">
+        @RenderTargetsList()
+    </div>
+}
+else
+{
+    <div class="flex items-center justify-center pa-4 w-full h-full">
+        <div class="flex items-center justify-center pa-4 mx-36 bg-[#2a313c] border border-[#353c44]">
+            Create an account to save your targets!
+        </div>
+    </div>
+}
 
-<div class="flex">
-    <p class="text-8xl">some large textg</p>
-</div>
+@code {
 
-<MudAlert Severity="Severity.Normal">
-    You can find documentation and examples on our website here:
-    <MudLink Href="https://mudblazor.com" Target="_blank" Typo="Typo.body2" Color="Color.Primary">
-        <b>www.mudblazor.com</b>
-    </MudLink>
-</MudAlert>
+    private RenderFragment RenderTargetsList() => __builder =>
+    {
+        <div class="flex flex-col gap-3 pa-4 mx-24 bg-[#2a313c] border border-[#353c44]">
+            <p class="text-xl font-bold">
+                Your Targets:
+            </p>
+
+            <div class="flex flex-col gap-3">
+                @foreach (var target in _targets)
+                {
+                    @RenderTargetItem(target)
+                }
+            </div>
+        </div>
+    };
+
+    private RenderFragment RenderTargetItem(Target target) => __builder =>
+    {
+        RenderFragment Something(string valueName, string value) => _ =>
+        {
+            <div>
+                <p class="font-bold text-xs">
+                    @valueName
+                </p>
+                <p class="text-xs">
+                    @value
+                </p>
+            </div>
+        };
+
+        // Console.WriteLine($"{target.MinCloudCoverFilter * 100} {target.MaxCloudCoverFilter * 100}");
+        
+        <div class="relative flex gap-4 items-center justify-between pa-3 bg-[#262c36]">
+            
+            <div class="flex flex-shrink-0 items-center gap-4">
+                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Width="55px" Height="55px"/>
+
+                <div class="flex flex-col gap-1">
+                    <div class="flex gap-4 items-center">
+                        <p class="font-bold">
+                            @($"{target.Latitude:F}\u00b0N, {target.Longitude:F}\u00b0W")
+                        </p>
+
+                        <p class="font-bold text-[0.55rem]">
+                            @target.Id
+                        </p>
+                    </div>
+
+                    <div class="flex gap-4">
+                        @Something("Path", target.Path.ToString())
+                        @Something("Row", target.Row.ToString())
+                    </div>
+                </div>
+            </div>
+            
+            @{
+                var minCloudCover = target.MinCloudCoverFilter * 100;
+                var maxCloudCover = target.MaxCloudCoverFilter * 100;
+            }
+
+            <div class="absolute left-1/2 transform -translate-x-1/2">
+                <p class="-mb-4 text-center font-bold text-xs">Cloud Cover Filter Range</p>
+                
+                <MudRangeSlider Value="@minCloudCover"
+                                UpperValue="@maxCloudCover"
+                                Min="0" Max="100"
+                                Disabled
+                                ValueLabel
+                                Size="@Size.Small"
+                                Class="cursor-not-allowed opacity-50 outline-none ring-0"/>
+
+                <p class="-mt-4 text-center font-bold text-[0.65rem]">
+                    @(minCloudCover) - @(maxCloudCover)
+                </p>
+            </div>
+            
+            <div class="flex-shrink-0 text-right">
+                <MudButton>something</MudButton>
+            </div>
+
+        </div>
+    };
+
+}

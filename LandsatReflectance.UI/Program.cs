@@ -12,6 +12,7 @@ using LandsatReflectance.UI.Services.Api;
 using LandsatReflectance.UI.Utils;
 using Microsoft.Extensions.Options;
 using MudBlazor.Services;
+using MudExtensions.Services;
 using ProtoBuf.Meta;
 
 
@@ -58,11 +59,13 @@ builder.Services.AddScoped(sp =>
 
 builder.Services.AddScoped<Wrs2AreasService>();
 builder.Services.AddScoped<UiService>();
-builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<ApiUserService>();
+builder.Services.AddScoped<ApiTargetService>();
 builder.Services.AddScoped<CurrentUserService>();
 
 builder.Services.AddMudServices();
+builder.Services.AddMudExtensions();
 
-builder.Services.AddBlazoredLocalStorage();
+builder.Services.AddBlazoredLocalStorageAsSingleton();
 
 await builder.Build().RunAsync();

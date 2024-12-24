@@ -2,11 +2,15 @@
 using LandsatReflectance.UI.Services;
 using LandsatReflectance.UI.Utils;
 using Microsoft.AspNetCore.Components;
+using MudBlazor;
 
 namespace LandsatReflectance.UI.Layout;
 
 public partial class NavMenu : ComponentBase
 {
+    [Inject]
+    public required ISnackbar Snackbar { get; set; }
+    
     [Inject]
     public required CurrentUserService CurrentUserService { get; set; }
     
@@ -48,6 +52,19 @@ public partial class NavMenu : ComponentBase
                 return Task.CompletedTask;
             });
     }
-    
-    
+
+    private async Task LogoutUser()
+    {
+        await FullPageLoadingOverlay.ExecuteWithOverlay(
+            async () =>
+            {
+                await Task.Delay(TimeSpan.FromSeconds(Rand.GeneratePageSwitchDelayTime()));
+            }, 
+            () =>
+            {
+                CurrentUserService.LogoutUser();
+                Snackbar.Add("Successfully logged out", Severity.Info);
+                return Task.CompletedTask;
+            });
+    }
 }

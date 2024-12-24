@@ -11,23 +11,20 @@ using OneOf.Types;
 
 namespace LandsatReflectance.UI.Services.Api;
 
-public class UserService
+public class ApiUserService
 {
     private readonly JsonSerializerOptions m_jsonSerializerOptions;
-    private readonly ILogger<UserService> m_logger;
+    private readonly ILogger<ApiUserService> m_logger;
     private readonly HttpClient m_httpClient;
-    private readonly CurrentUserService m_currentUserService;
     
-    public UserService(
+    public ApiUserService(
         JsonSerializerOptions jsonSerializerOptions, 
-        ILogger<UserService> logger, 
-        HttpClient httpClient, 
-        CurrentUserService currentUserService)
+        ILogger<ApiUserService> logger, 
+        HttpClient httpClient)
     {
         m_jsonSerializerOptions = jsonSerializerOptions;
         m_logger = logger;
         m_httpClient = httpClient;
-        m_currentUserService = currentUserService;
     }
 
     public async Task<Result<string, string>> LoginAsync(string email, string password)
@@ -66,56 +63,42 @@ public class UserService
         }
     }
 
-    /*
-    public async Task RegisterAsync(UserModel userModel)
+    public async Task<Result<string, string>> RegisterAsync(string email, string firstName, string lastName, string password, bool isEmailEnabled)
     {
-        var userLoginRequest = new UserLoginInfo
+        var userInfoDict = new Dictionary<string, object>
         {
-            Email = userModel.Email,
-            Password = userModel.Password
+            { "email", email },
+            { "firstName", firstName },
+            { "lastName", lastName },
+            { "password", password },
+            { "isEmailEnabled", isEmailEnabled },
         };
-
+        
         try
         {
-            using var contents = new StringContent(JsonSerializer.Serialize(userLoginRequest, m_jsonSerializerOptions), Encoding.UTF8, "application/json");
-            var response = await m_httpClient.PostAsync("Authentication/Register", contents);
+            using var requestBody = new StringContent(JsonSerializer.Serialize(userInfoDict, m_jsonSerializerOptions), Encoding.UTF8, "application/json");
+            var response = await m_httpClient.PostAsync("user/create", requestBody);
 
-            var stream = await response.Content.ReadAsStreamAsync();
-            var registerResponse = await JsonSerializer.DeserializeAsync<ResponseBase<UserWithToken>>(stream, m_jsonSerializerOptions);
+            var responseBody = await response.Content.ReadAsStringAsync();
+            var apiResponse = JsonSerializer.Deserialize<ApiResponse<string>>(responseBody, m_jsonSerializerOptions);
 
-            if (registerResponse is null)
+            if (apiResponse is null)
             {
-                var innerException = new Exception("The deserialized response from the server is null.");
-                throw new ServerRequestException(innerException);
+                return Result<string, string>.FromError("Response from the server is null");
             }
 
-            if (registerResponse.ErrorMessage is not null)
+            if (apiResponse.ErrorMessage is not null)
             {
-                throw new BadRequestException(registerResponse.ErrorMessage);
+                return Result<string, string>.FromError(apiResponse.ErrorMessage);
             }
 
-            if (registerResponse.Data is null)
-            {
-                var innerException = new NoResponseException("The deserialized response from the server is null.");
-                throw new ServerRequestException(innerException);
-            }
-
-            var userAndToken = registerResponse.Data;
-            m_currentUserService.InitCurrentUser(userAndToken.User, userAndToken.Token);
-        }
-        catch (ServerRequestException)
-        {
-            throw;
-        }
-        catch (BadRequestException)
-        {
-            throw;
+            var authToken = apiResponse.Data;
+            return Result<string, string>.FromOk(authToken);
         }
         catch (Exception exception)
         {
-            // Wrap as 'ServerRequestException' by default
-            throw new ServerRequestException(exception);
+            m_logger.LogError(exception.ToString());
+            return Result<string, string>.FromError("An unknown error occurred");
         }
     }
-         */
 }

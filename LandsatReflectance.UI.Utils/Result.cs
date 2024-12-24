@@ -37,6 +37,21 @@ public static class ResultExtensions
         Func<TError, T> mapError) 
         =>
         result.IsOk ? mapOk(result.OkValue) : mapError(result.ErrorValue);
+
+    public static void MatchUnit<TOk, TError>(
+        this Result<TOk, TError> result,
+        Action<TOk> okCallback,
+        Action<TError> errorCallback)
+    {
+        if (result.IsOk)
+        {
+            okCallback(result.OkValue);
+        }
+        else
+        {
+            errorCallback(result.ErrorValue);
+        }
+    }
     
     public static Result<TNewOk, TError> Bind<TOk, TError, TNewOk>(
         this Result<TOk, TError> result,

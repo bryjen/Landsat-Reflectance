@@ -23,7 +23,7 @@ public partial class Login : ComponentBase
     public required IDialogService DialogService { get; set; }
     
     [Inject]
-    public required UserService UserService { get; set; }
+    public required ApiUserService ApiUserService { get; set; }
     
     [Inject]
     public required CurrentUserService CurrentUserService { get; set; }
@@ -87,8 +87,8 @@ public partial class Login : ComponentBase
         StateHasChanged();
         
         
-        var authTokenResult = await UserService.LoginAsync(m_email, m_password);
-        var loginResult = authTokenResult.Bind(CurrentUserService.TryInitCurrentUser);
+        var authTokenResult = await ApiUserService.LoginAsync(m_email, m_password);
+        var loginResult = authTokenResult.Bind(CurrentUserService.TryInitFromAuthToken);
 
         await loginResult.Match<Task<Unit>, Unit, string>(
             async _ =>  // on successful login
