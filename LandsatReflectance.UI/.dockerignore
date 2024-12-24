@@ -2,3 +2,6 @@
 obj
 /bin
 /obj
+
+# Remove the generated tailwind css file, re-generate it in docker
+wwwroot/css/app.min.css

@@ -1,6 +1,12 @@
-﻿FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+﻿FROM node:alpine AS build_css
 WORKDIR /src
 COPY . .
+RUN npm install tailwindcss postcss autoprefixer postcss-cli
+RUN npx tailwindcss -i wwwroot/css/app.css -o wwwroot/css/app.min.css
+
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+COPY --from=build_css /src .
 RUN dotnet publish -c Release -o /app
 
 # TODO: Find a way to use nginx to serve down the line
