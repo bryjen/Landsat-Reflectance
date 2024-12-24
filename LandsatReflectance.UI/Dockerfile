@@ -1,10 +1,13 @@
 ﻿FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 COPY . .
-RUN dotnet publish -c Release -o /app/publish
+RUN dotnet publish -c Release -o /app
 
-FROM nginx:alpine
+# TODO: Find a way to use nginx to serve down the line
+FROM node:alpine AS final
 WORKDIR /app
-COPY --from=build /app/publish/ .
-EXPOSE 5035
-CMD ["nginx", "-g", "daemon off;"]
+COPY --from=build /app .
+
+RUN npm install -g serve
+EXPOSE 8080
+CMD ["serve", "-s", "wwwroot", "-l", "8080"]
