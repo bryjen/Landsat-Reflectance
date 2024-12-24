@@ -29,6 +29,9 @@ jobs:
       name: production 
 
     steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    
     - name: Build the Docker image
       run: |
         docker build -f LandsatReflectance.Api/Dockerfile --no-cache -t chronoalpha/fs_landsat_api .
@@ -48,6 +51,9 @@ jobs:
       name: production 
 
     steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    
     - name: Build the Docker image
       run: |
         docker build -f LandsatReflectance.UI/Dockerfile --no-cache -t chronoalpha/landsat_ui .
