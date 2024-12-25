@@ -1,4 +1,4 @@
-<div style="display: flex; flex-direction: column; justify-content: center; align-items: center">
+<div align="center">
     <h1><a href="https://landsat-ui.onrender.com/" target="_blank">Landsat Reflectance</a></h1>
     <p style="text-align: center">
         Interact with Landsat Reflectance data easily. 
@@ -6,6 +6,8 @@
         Easily compare most recent Landsat Reflectance data with ground-based observations.
     </p>
 </div>
+
+<br/>
 
 ### Description
 TODO
