@@ -1,7 +1,20 @@
-<div align="center">
-    <p align="center">
-        <h1 align="center">FsLandsatApi</h1>
-        <a href="https://fs-landsat-api.onrender.com/swagger/index.html" target="_blank"><b>WIP</b></a>
-        <br>
+<div style="display: flex; flex-direction: column; justify-content: center; align-items: center">
+    <h1><a href="https://landsat-ui.onrender.com/" target="_blank">Landsat Reflectance</a></h1>
+    <p style="text-align: center">
+        Interact with Landsat Reflectance data easily. 
+        <br/>
+        Easily compare most recent Landsat Reflectance data with ground-based observations.
     </p>
 </div>
+
+### Description
+TODO
+
+#### Features:
+- [ ] Filter, save, and search landsat scenes based on location, date, satellite, etc.
+- [ ] Receive notifications when another scene image gets posted
+- [ ] Provide external download links for offline analysis
+
+### Demo
+You can use the application [here](https://www.example.com). 
+However, if you want to run the application locally, you can view more detailed steps on how to do this [here](https://www.example.com).
