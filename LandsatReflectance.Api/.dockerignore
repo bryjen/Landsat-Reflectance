@@ -2,4 +2,9 @@
 /.bin
 /.obj
 
+# Ignore other projects in case building image from solution root
+LandsatReflectance.Build
+LandsatReflectance.SceneBoundaries
+LandsatReflectance.UI
+
 .gitignore

@@ -7,7 +7,7 @@ RUN npx tailwindcss -i /src/LandsatReflectance.UI/wwwroot/css/app.css -o /src/La
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 COPY --from=build_css /src .
-RUN dotnet publish -c Release -o /app
+RUN dotnet publish LandsatReflectance.UI -c Release -o /app
 
 # TODO: Find a way to use nginx to serve down the line
 FROM node:alpine AS final
