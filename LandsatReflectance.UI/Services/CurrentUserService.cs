@@ -6,23 +6,38 @@ using LandsatReflectance.UI.Utils;
 
 namespace LandsatReflectance.UI.Services;
 
+
+public class AuthenticatedEventArgs : EventArgs
+{
+    public required string Token { get; init; }
+    public required string FirstName { get; init; }
+    public required string LastName { get; init; }
+    public required string Email { get; init; }
+}
+
 public class CurrentUserService
 {
-    public string AuthToken { get; private set; } = string.Empty;
-    
+    public string Token { get; private set; } = string.Empty;
     public string FirstName { get; private set; } = string.Empty;
     public string LastName { get; private set; } = string.Empty;
     public string Email { get; private set; } = string.Empty;
     public bool IsAuthenticated { get; private set; } = false;
     
     
+    public EventHandler<AuthenticatedEventArgs> OnUserAuthenticated = (_, _) => { };
+    
+    public EventHandler OnUserLogout = (_, _) => { };
+    
+    
     private readonly ILogger<CurrentUserService> _logger;
     private readonly ISyncLocalStorageService _localStorage;
-
+    
     private const string AuthTokenLocalStorageKey = "authToken";
     
     
-    public CurrentUserService(ILogger<CurrentUserService> logger, ISyncLocalStorageService localStorage)
+    public CurrentUserService(
+        ILogger<CurrentUserService> logger, 
+        ISyncLocalStorageService localStorage)
     {
         _logger = logger;
         _localStorage = localStorage;
@@ -44,7 +59,7 @@ public class CurrentUserService
 
     public Result<Unit, string> TryInitFromAuthToken(string authToken)
     {
-        AuthToken = authToken;
+        Token = authToken;
 
         var handler = new JwtSecurityTokenHandler();
         var asJwtToken = handler.ReadJwtToken(authToken);
@@ -76,10 +91,11 @@ public class CurrentUserService
         }
         Email = emailClaim.Value;
         
-        
         IsAuthenticated = true;
 
         PersistAuthToken();
+        NotifyLoggedIn();
+        
         return Result<Unit, string>.FromOk(Unit.Default);
     }
 
@@ -87,11 +103,13 @@ public class CurrentUserService
     {
         if (IsAuthenticated)
         {
-            AuthToken = string.Empty;
+            Token = string.Empty;
             FirstName = string.Empty;
             LastName = string.Empty;
             Email = string.Empty;
             IsAuthenticated = false;
+            
+            OnUserLogout.Invoke(this, EventArgs.Empty);
 
             if (_localStorage.ContainKey(AuthTokenLocalStorageKey))
             {
@@ -99,10 +117,24 @@ public class CurrentUserService
             }
         }
     }
+
+    private void NotifyLoggedIn()
+    {
+        OnUserAuthenticated.Invoke(this, new AuthenticatedEventArgs
+        {
+            Token = this.Token,
+            FirstName = this.FirstName,
+            LastName = this.LastName,
+            Email = this.Email,
+        });
+    }
     
     
     private void PersistAuthToken()
     {
-        _localStorage.SetItemAsString(AuthTokenLocalStorageKey, AuthToken);
+        if (IsAuthenticated)
+        {
+            _localStorage.SetItemAsString(AuthTokenLocalStorageKey, Token);
+        }
     }
 }

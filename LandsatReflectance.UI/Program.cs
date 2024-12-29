@@ -62,6 +62,7 @@ builder.Services.AddScoped<UiService>();
 builder.Services.AddScoped<ApiUserService>();
 builder.Services.AddScoped<ApiTargetService>();
 builder.Services.AddScoped<CurrentUserService>();
+builder.Services.AddScoped<CurrentTargetsService>();
 
 builder.Services.AddMudServices();
 builder.Services.AddMudExtensions();

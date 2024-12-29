@@ -1,4 +1,6 @@
-﻿using LandsatReflectance.UI.Models;
+﻿using System.Collections.Concurrent;
+using System.Collections.Specialized;
+using LandsatReflectance.UI.Models;
 using LandsatReflectance.UI.Services;
 using LandsatReflectance.UI.Services.Api;
 using LandsatReflectance.UI.Utils;
@@ -10,36 +12,124 @@ namespace LandsatReflectance.UI.Pages;
 public partial class Home : ComponentBase
 {
     [Inject]
+    public required ILogger<Home> Logger { get; set; }
+    
+    [Inject]
     public required ISnackbar Snackbar { get; set; }
     
     [Inject]
     public required ApiTargetService ApiTargetService { get; set; }
     
     [Inject]
+    public required CurrentTargetsService CurrentTargetsService { get; set; }
+    
+    [Inject]
     public required CurrentUserService CurrentUserService { get; set; }
 
 
-    private Target[] _targets = [];
+    private readonly ConcurrentDictionary<Target, SceneData?> _targetSceneDataMap = new();
 
-
-    protected override async Task OnParametersSetAsync()
+    
+    
+    protected override void OnParametersSet()
     {
-        await GetTargets();
+        CurrentUserService.OnUserAuthenticated += CurrentTargetsService.SaveTargetsCreatedOffline;
+        CurrentUserService.OnUserAuthenticated += CurrentTargetsService.LoadUserTargets;
+        
+        CurrentUserService.OnUserLogout += CurrentTargetsService.OnUserLogout;
+        
+        CurrentTargetsService.Targets.CollectionChanged += OnDataChanged;
+        CurrentTargetsService.OnIsLoadingTargetsChanged += OnDataChanged;
     }
 
-
-    public async Task GetTargets()
+    protected override async Task OnAfterRenderAsync(bool isFirstRender)
     {
-        var targetsResult = await ApiTargetService.TryGetUserTargets();
-        targetsResult.MatchUnit(
-            targets =>
+        // Logic to load targets based on cookie auth
+        if (isFirstRender && CurrentUserService.IsAuthenticated && !CurrentTargetsService.HasLoadedUserTargets)
+        {
+            await CurrentTargetsService.LoadUserTargetsCore(CurrentUserService.Token);
+        }
+        else if (isFirstRender && CurrentUserService.IsAuthenticated && CurrentTargetsService.HasLoadedUserTargets)
+        {
+            ReInitDictionary();
+        }
+    }
+
+    public void Dispose()
+    {
+        #nullable disable
+        CurrentUserService.OnUserAuthenticated -= CurrentTargetsService.SaveTargetsCreatedOffline;
+        CurrentUserService.OnUserAuthenticated -= CurrentTargetsService.LoadUserTargets;
+        
+        CurrentUserService.OnUserLogout -= CurrentTargetsService.OnUserLogout;
+        
+        CurrentTargetsService.Targets.CollectionChanged -= OnDataChanged;
+        CurrentTargetsService.OnIsLoadingTargetsChanged -= OnDataChanged;
+        #nullable enable
+    }
+
+    private void ReInitDictionary()
+    {
+        _targetSceneDataMap.Clear();
+        foreach (var target in CurrentTargetsService.Targets)
+        {
+            if (!_targetSceneDataMap.ContainsKey(target))
             {
-                _targets = targets;
+                _targetSceneDataMap.TryAdd(target, null);
                 StateHasChanged();
-            },
-            errorMsg =>
+                
+                TryGetSceneDataFromTarget(target, retryOnFail: true);
+            }
+        }
+    }
+    
+    private void OnDataChanged(object? sender, EventArgs _)
+    {
+        ReInitDictionary();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async void TryGetSceneDataFromTarget(Target target, bool retryOnFail = false)
+    {
+        try
+        {
+            var sceneDataResults = await ApiTargetService.TryGetSceneData(
+                CurrentUserService.Token, 
+                target.Path,
+                target.Row, 
+                2);
+            sceneDataResults.MatchUnit(
+                sceneDatas =>
+                {
+                    var sceneData = sceneDatas.FirstOrDefault();
+                    if (!_targetSceneDataMap.TryAdd(target, sceneData))
+                    {
+                        _targetSceneDataMap[target] = sceneData;
+                    }
+                    InvokeAsync(StateHasChanged);
+                },
+                errorMsg =>
+                {
+                    Logger.LogError(errorMsg);
+                    InvokeAsync(StateHasChanged);
+                });
+        }
+        catch (OperationCanceledException _)
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception exception)
+        {
+            if (retryOnFail)
             {
-                Snackbar.Add(errorMsg, Severity.Error);
-            });
+                await Task.Delay(TimeSpan.FromSeconds(2));  // Have some delay between retry attempts
+                TryGetSceneDataFromTarget(target, retryOnFail: false);
+            }
+            else
+            {
+                Logger.LogError(exception.ToString());
+                await InvokeAsync(StateHasChanged);
+            }
+        }
     }
 }    
