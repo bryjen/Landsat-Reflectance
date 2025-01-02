@@ -1,4 +1,5 @@
-﻿using System.Net.Http.Headers;
+﻿using System;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using LandsatReflectance.UI.Models;
 using LandsatReflectance.UI.Utils;
@@ -101,5 +102,10 @@ public class ApiTargetService
             _logger.LogError(exception.ToString());
             return Result<Target[], string>.FromError("An unknown error occurred");
         }
+    }
+
+    public async Task<Target?> TryDeleteTarget(string authToken, Target targetToDelete)
+    {
+        throw new NotImplementedException();
     }
 }

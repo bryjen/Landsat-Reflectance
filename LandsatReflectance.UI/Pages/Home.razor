@@ -27,7 +27,7 @@ else
         <div class="flex flex-col gap-3 pa-4 mx-24 bg-[#2a313c] border border-[#353c44]">
             <div class="flex justify-between items-center">
                 <p class="text-xl font-bold">
-                    <MudIcon Size="Size.Large" Icon="@Icons.Material.Filled.SatelliteAlt"/>
+                    <MudIcon Size="Size.Large" Icon="@Icons.Material.Filled.SatelliteAlt" Class="pr-2"/>
                     Your Targets
                 </p>
                 
@@ -56,7 +56,7 @@ else
 
     private RenderFragment RenderTargetItem(Target target, SceneData? sceneData) => __builder =>
     {
-        RenderFragment Something(string valueName, string value) => _ =>
+        RenderFragment Something(string valueName, string value) => _ =>  // don't rename this
         {
             <div>
                 <p class="font-bold text-xs">
@@ -68,8 +68,6 @@ else
             </div>
         };
 
-        // Console.WriteLine($"{target.MinCloudCoverFilter * 100} {target.MaxCloudCoverFilter * 100}");
-        
         <div class="relative flex gap-4 items-center justify-between pa-3 bg-[#262c36]">
             
             <div class="flex flex-shrink-0 items-center gap-4">
@@ -126,10 +124,40 @@ else
                 <MudButton Variant="@Variant.Outlined" Size="@Size.Small">
                     View Detailed
                 </MudButton>
-                <MudIconButton Size="@Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Delete"/>
+                
+                @RenderTargetDeleteItem(target)
             </div>
 
         </div>
+    };
+
+    private RenderFragment RenderTargetDeleteItem(Target target) => __builder =>
+    {
+        <MudMenu>
+            <ActivatorContent>
+                <div class="flex justify-between items-center">
+                    <MudIconButton Size="@Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Delete"/>
+                </div>
+            </ActivatorContent>
+            <ChildContent>
+                <div class="flex flex-col justify-between items-center gap-3 pa-3 border rounded border-[#353c44]">
+                    <div class="flex flex-col justify-between items-center">
+                        <p>Confirm Deletion of</p>
+                        <p class="font-bold">
+                            @($"{target.Latitude:F}\u00b0N, {target.Longitude:F}\u00b0W")
+                        </p>
+                    </div>
+                    <div class="flex gap-4">
+                        <MudButton Size="@Size.Small" Variant="@Variant.Outlined" Color="@Color.Error">
+                            Delete
+                        </MudButton>
+                        <MudButton Size="@Size.Small" Variant="@Variant.Outlined">
+                            Cancel
+                        </MudButton>
+                    </div>
+                </div>
+            </ChildContent>
+        </MudMenu>
     };
 
 }

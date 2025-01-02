@@ -5,12 +5,16 @@ using LandsatReflectance.UI.Services;
 using LandsatReflectance.UI.Services.Api;
 using LandsatReflectance.UI.Utils;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using MudBlazor;
 
 namespace LandsatReflectance.UI.Pages;
 
 public partial class Home : ComponentBase
 {
+    [Inject]
+    public required IWebAssemblyHostEnvironment Environment { get; set; }
+    
     [Inject]
     public required ILogger<Home> Logger { get; set; }
     
@@ -89,8 +93,28 @@ public partial class Home : ComponentBase
         InvokeAsync(StateHasChanged);
     }
 
+    // ReSharper disable once AsyncVoidMethod
     private async void TryGetSceneDataFromTarget(Target target, bool retryOnFail = false)
     {
+        var onSceneDataFound = (SceneData[] sceneDataArr) =>
+        { 
+            var sceneData = sceneDataArr.FirstOrDefault();
+            if (!_targetSceneDataMap.TryAdd(target, sceneData))
+            {
+                _targetSceneDataMap[target] = sceneData;
+            }
+            InvokeAsync(StateHasChanged);
+        };
+
+        var onSceneDataNotFound = (string errorMsg) =>
+        {
+            if (!Environment.IsProduction())
+            {
+                Logger.LogError(errorMsg);
+            }
+            InvokeAsync(StateHasChanged);
+        };
+        
         try
         {
             var sceneDataResults = await ApiTargetService.TryGetSceneData(
@@ -98,21 +122,7 @@ public partial class Home : ComponentBase
                 target.Path,
                 target.Row, 
                 2);
-            sceneDataResults.MatchUnit(
-                sceneDatas =>
-                {
-                    var sceneData = sceneDatas.FirstOrDefault();
-                    if (!_targetSceneDataMap.TryAdd(target, sceneData))
-                    {
-                        _targetSceneDataMap[target] = sceneData;
-                    }
-                    InvokeAsync(StateHasChanged);
-                },
-                errorMsg =>
-                {
-                    Logger.LogError(errorMsg);
-                    InvokeAsync(StateHasChanged);
-                });
+            sceneDataResults.MatchUnit(onSceneDataFound, onSceneDataNotFound);
         }
         catch (OperationCanceledException _)
         {

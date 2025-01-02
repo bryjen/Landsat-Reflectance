@@ -93,4 +93,24 @@ public class CurrentTargetsService
         Targets.Clear();
         HasLoadedUserTargets = false;
     }
+
+    private async Task TryDeleteTarget(
+        Target target, 
+        CancellationToken? cancellationToken = null,
+        Action<Target>? onSuccessfulDelete = null, 
+        Action<Target>? onUnsuccessfulDelete = null)
+    {
+        cancellationToken ??= CancellationToken.None;
+        onSuccessfulDelete ??= _ => { };
+        onUnsuccessfulDelete ??= _ => { };
+        
+        try
+        {
+            
+        }
+        catch (Exception exception)
+        {
+            
+        }
+    }
 }
