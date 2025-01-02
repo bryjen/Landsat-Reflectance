@@ -1,11 +1,11 @@
 ﻿using FluentValidation;
 using LandsatReflectance.UI.Components;
+using LandsatReflectance.UI.Exceptions;
 using LandsatReflectance.UI.Services;
 using LandsatReflectance.UI.Utils;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
-using Microsoft.JSInterop;
 using MudBlazor;
 using Severity = MudBlazor.Severity;
 
@@ -35,7 +35,7 @@ public class UserModelValidator : AbstractValidator<UserModel>
         RuleFor(model => model.Email)
             .NotEmpty().WithMessage("An email is required.")
             .EmailAddress()
-            .Must((value, cancellationToken) => true);  // add logic to check if email is unique here
+            .Must((_, _) => true);  // TODO: add logic to check if email is unique here
 
         RuleFor(model => model.Password)
             .NotEmpty().WithMessage("A password is required.")
@@ -59,22 +59,23 @@ public class UserModelValidator : AbstractValidator<UserModel>
 public partial class Registration : ComponentBase
 {
     [Inject]
-    public required CurrentUserService CurrentUserService { get; set; }
+    public required IWebAssemblyHostEnvironment Environment { get; set; }
     
+    [Inject]
+    public required CurrentUserService CurrentUserService { get; set; }
     
     [Parameter]
     public string Email { get; set; } = string.Empty;
     
-
     [CascadingParameter]
     public required FullPageLoadingOverlay FullPageLoadingOverlay { get; set; }
     
     
-    private MudForm m_mudForm = new();
-    private UserModelValidator m_userModelValidator = new();
-    private UserModel m_userModel = new();
+    private MudForm _mudForm = new();
+    private readonly UserModelValidator _userModelValidator = new();
+    private readonly UserModel _userModel = new();
 
-    private bool m_isSendingData = false;
+    private bool m_isSendingData;
     
     
     protected override void OnInitialized()
@@ -87,7 +88,7 @@ public partial class Registration : ComponentBase
             Email = email.ToString();
         }
 
-        m_userModel.Email = Email;
+        _userModel.Email = Email;
     }
     
 #region Password Text Field
@@ -132,8 +133,8 @@ public partial class Registration : ComponentBase
 
     private async Task SubmitForm()
     {
-        await m_mudForm.Validate();
-        if (!m_mudForm.IsValid)
+        await _mudForm.Validate();
+        if (!_mudForm.IsValid)
         {
             return;
         }
@@ -141,34 +142,47 @@ public partial class Registration : ComponentBase
         m_isSendingData = true;
         StateHasChanged();
 
-        
-        var registrationResult = await ApiUserService.RegisterAsync(m_userModel.Email, m_userModel.FirstName, m_userModel.LastName, m_userModel.Password, true);
-        var authResult = registrationResult.Bind(CurrentUserService.TryInitFromAuthToken);
-        
-        await authResult.Match<Task<Unit>, Unit, string>(
-            async _ =>
+        try
+        {
+            var authToken = await ApiUserService.RegisterAsync(_userModel.Email, _userModel.FirstName, _userModel.LastName, _userModel.Password, true);
+            CurrentUserService.TryInitFromAuthToken(authToken);
+            
+            m_isSendingData = false;
+            StateHasChanged();
+            
+            await FullPageLoadingOverlay.ExecuteWithOverlay(
+               async  () =>
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(Rand.GeneratePageSwitchDelayTime()));
+                },
+               () =>
+               {
+                    NavigationManager.NavigateTo("/");
+                    Snackbar.Add("Successfully registered.", Severity.Info);
+                    return Task.CompletedTask;
+               });
+        }
+        catch (AuthException authException)
+        {
+            if (!Environment.IsProduction())
             {
-                m_isSendingData = false;
-                StateHasChanged();
-                
-                await FullPageLoadingOverlay.ExecuteWithOverlay(
-                   async  () =>
-                    {
-                        await Task.Delay(TimeSpan.FromSeconds(Rand.GeneratePageSwitchDelayTime()));
-                    },
-                   () =>
-                   {
-                        NavigationManager.NavigateTo("/");
-                        Snackbar.Add("Successfully registered.", Severity.Info);
-                        return Task.CompletedTask;
-                   });
-                
-                return Unit.Default;
-            },
-            errorMessage =>
+                Snackbar.Add(authException.Message, Severity.Error);
+            }
+            else
             {
-                Snackbar.Add(errorMessage, Severity.Error);
-                return Task.FromResult(Unit.Default);
-            });
+                _ = AuthException.GenericLoginErrorMessage;
+                // TODO: Make popup for this thing
+            }
+        }
+        catch (Exception exception)
+        {
+            _ = AuthException.GenericLoginErrorMessage;
+            // TODO: Make popup for this thing
+        }
+        finally
+        {
+            m_isSendingData = false;
+            StateHasChanged();
+        }
     }
 }

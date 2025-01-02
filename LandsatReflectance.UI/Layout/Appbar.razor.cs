@@ -1,5 +1,4 @@
-﻿using LandsatReflectance.UI.Services;
-using Microsoft.AspNetCore.Components;
+﻿using Microsoft.AspNetCore.Components;
 using MudBlazor;
 
 namespace LandsatReflectance.UI.Layout;

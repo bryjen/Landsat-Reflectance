@@ -1,5 +1,5 @@
 ﻿using System.Collections.Concurrent;
-using System.Collections.Specialized;
+using LandsatReflectance.UI.Components;
 using LandsatReflectance.UI.Models;
 using LandsatReflectance.UI.Services;
 using LandsatReflectance.UI.Services.Api;
@@ -29,6 +29,10 @@ public partial class Home : ComponentBase
     
     [Inject]
     public required CurrentUserService CurrentUserService { get; set; }
+    
+    
+    [CascadingParameter]
+    public required FullPageLoadingOverlay FullPageLoadingOverlay { get; set; }
 
 
     private readonly ConcurrentDictionary<Target, SceneData?> _targetSceneDataMap = new();
@@ -93,38 +97,24 @@ public partial class Home : ComponentBase
         InvokeAsync(StateHasChanged);
     }
 
-    // ReSharper disable once AsyncVoidMethod
     private async void TryGetSceneDataFromTarget(Target target, bool retryOnFail = false)
     {
-        var onSceneDataFound = (SceneData[] sceneDataArr) =>
-        { 
+        try
+        {
+            var sceneDataArr = await ApiTargetService.TryGetSceneData(
+                CurrentUserService.Token, 
+                target.Path,
+                target.Row, 
+                2);
+            
             var sceneData = sceneDataArr.FirstOrDefault();
             if (!_targetSceneDataMap.TryAdd(target, sceneData))
             {
                 _targetSceneDataMap[target] = sceneData;
             }
-            InvokeAsync(StateHasChanged);
-        };
-
-        var onSceneDataNotFound = (string errorMsg) =>
-        {
-            if (!Environment.IsProduction())
-            {
-                Logger.LogError(errorMsg);
-            }
-            InvokeAsync(StateHasChanged);
-        };
-        
-        try
-        {
-            var sceneDataResults = await ApiTargetService.TryGetSceneData(
-                CurrentUserService.Token, 
-                target.Path,
-                target.Row, 
-                2);
-            sceneDataResults.MatchUnit(onSceneDataFound, onSceneDataNotFound);
+            await InvokeAsync(StateHasChanged);
         }
-        catch (OperationCanceledException _)
+        catch (OperationCanceledException)
         {
             await InvokeAsync(StateHasChanged);
         }
@@ -137,9 +127,53 @@ public partial class Home : ComponentBase
             }
             else
             {
+                if (!Environment.IsProduction())
+                {
+                    Logger.LogError(exception.Message);
+                }
+                
                 Logger.LogError(exception.ToString());
                 await InvokeAsync(StateHasChanged);
             }
+        }
+    }
+
+    private async Task TryDeleteTarget(Target target)
+    {
+        // Direct call to api service cause I don't feel like having a two layer call
+        try
+        {
+            FullPageLoadingOverlay.SetOverlayMessage("Deleting target...");
+            FullPageLoadingOverlay.Show();
+
+            var deletedTarget = CurrentUserService.IsAuthenticated 
+                ? await ApiTargetService.TryDeleteTarget(CurrentUserService.Token, target)
+                : target;
+
+            var wasDeleted = CurrentTargetsService.Targets.Remove(deletedTarget);
+            if (!Environment.IsProduction())
+            {
+                Logger.LogInformation($"Try delete \"{target.Id}\" from memory: {wasDeleted}");
+            }
+
+            Snackbar.Add("Successfully deleted target", Severity.Success);
+        }
+        catch (Exception exception)
+        {
+            if (!Environment.IsProduction())
+            {
+                Logger.LogError(exception.ToString());
+                Snackbar.Add(exception.Message, Severity.Error);
+            }
+            else
+            {
+                Snackbar.Add("An unexpected error occurred.", Severity.Error);
+            }
+        }
+        finally
+        {
+            FullPageLoadingOverlay.ClearOverlayMessage();
+            FullPageLoadingOverlay.Hide();
         }
     }
 }    

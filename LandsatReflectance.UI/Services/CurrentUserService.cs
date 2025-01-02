@@ -1,7 +1,9 @@
 ﻿// using LandsatReflectance.Common.Models;
 
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Authentication;
 using Blazored.LocalStorage;
+using LandsatReflectance.UI.Exceptions;
 using LandsatReflectance.UI.Utils;
 
 namespace LandsatReflectance.UI.Services;
@@ -44,32 +46,27 @@ public class CurrentUserService
     }
 
     
-    public Result<Unit, string> TryInitFromLocalStorage()
+    public void TryInitFromLocalStorage()
     {
         var authToken = _localStorage.GetItemAsString(AuthTokenLocalStorageKey);
 
         if (authToken is not null)
         {
-            return TryInitFromAuthToken(authToken);
+            TryInitFromAuthToken(authToken);
         }
-        
-        // A null auth token isn't an error
-        return Result<Unit, string>.FromOk(Unit.Default);
     }
 
-    public Result<Unit, string> TryInitFromAuthToken(string authToken)
+    public void TryInitFromAuthToken(string authToken)
     {
         Token = authToken;
 
         var handler = new JwtSecurityTokenHandler();
         var asJwtToken = handler.ReadJwtToken(authToken);
 
-        
         var givenNameClaim = asJwtToken.Claims.FirstOrDefault(claim => claim.Type == JwtRegisteredClaimNames.GivenName);
         if (givenNameClaim is null)
         {
-            _logger.LogInformation($"Could not find the claim \"{JwtRegisteredClaimNames.GivenName}\".");
-            return Result<Unit, string>.FromError("Failed to authenticate user");
+            throw new AuthException($"Could not find the claim \"{JwtRegisteredClaimNames.GivenName}\".");
         }
         FirstName = givenNameClaim.Value;
         
@@ -77,8 +74,7 @@ public class CurrentUserService
         var familyNameClaim = asJwtToken.Claims.FirstOrDefault(claim => claim.Type == JwtRegisteredClaimNames.FamilyName);
         if (familyNameClaim is null)
         {
-            _logger.LogInformation($"Could not find the claim \"{JwtRegisteredClaimNames.FamilyName}\".");
-            return Result<Unit, string>.FromError("Failed to authenticate user");
+            throw new AuthException($"Could not find the claim \"{JwtRegisteredClaimNames.FamilyName}\".");
         }
         LastName = familyNameClaim.Value;
         
@@ -86,8 +82,7 @@ public class CurrentUserService
         var emailClaim = asJwtToken.Claims.FirstOrDefault(claim => claim.Type == JwtRegisteredClaimNames.Email);
         if (emailClaim is null)
         {
-            _logger.LogInformation($"Could not find the claim \"{JwtRegisteredClaimNames.Email}\".");
-            return Result<Unit, string>.FromError("Failed to authenticate user");
+            throw new AuthException($"Could not find the claim \"{JwtRegisteredClaimNames.Email}\".");
         }
         Email = emailClaim.Value;
         
@@ -95,8 +90,6 @@ public class CurrentUserService
 
         PersistAuthToken();
         NotifyLoggedIn();
-        
-        return Result<Unit, string>.FromOk(Unit.Default);
     }
 
     public void LogoutUser()

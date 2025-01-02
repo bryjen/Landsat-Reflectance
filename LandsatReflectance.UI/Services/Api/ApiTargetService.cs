@@ -22,7 +22,7 @@ public class ApiTargetService
         _httpClient = httpClient;
     }
 
-    public async Task<Result<SceneData[], string>> TryGetSceneData(
+    public async Task<SceneData[]> TryGetSceneData(
         string authToken, 
         int path, 
         int row, 
@@ -30,82 +30,69 @@ public class ApiTargetService
         CancellationToken? cancellationToken = null)
     {
         cancellationToken ??= CancellationToken.None;
+        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
 
-        try
+        var response = await _httpClient.GetAsync($"scene?path={path}&row={row}&results={results}", cancellationToken.Value);
+
+        var responseBody = await response.Content.ReadAsStringAsync();
+        var apiResponse =
+            JsonSerializer.Deserialize<ApiResponse<SceneData[]>>(responseBody, _jsonSerializerOptions);
+
+        if (apiResponse is null)
         {
-            if (_httpClient.DefaultRequestHeaders.Authorization is null)
-            {
-                _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
-            }
-
-            var response = await _httpClient.GetAsync($"scene?path={path}&row={row}&results={results}", cancellationToken.Value);
-
-            var responseBody = await response.Content.ReadAsStringAsync();
-            var apiResponse =
-                JsonSerializer.Deserialize<ApiResponse<SceneData[]>>(responseBody, _jsonSerializerOptions);
-
-            if (apiResponse is null)
-            {
-                return Result<SceneData[], string>.FromError("Response from the server is null");
-            }
-
-            if (apiResponse.ErrorMessage is not null)
-            {
-                return Result<SceneData[], string>.FromError(apiResponse.ErrorMessage);
-            }
-
-            return Result<SceneData[], string>.FromOk(apiResponse.Data);
+            throw new InvalidDataException("Response from the server is null");
         }
-        catch (OperationCanceledException _)
+
+        if (apiResponse.ErrorMessage is not null)
         {
-            return Result<SceneData[], string>.FromError("Cancelled operation");
+            throw new InvalidOperationException("Response from the server is null");
         }
-        catch (Exception exception)
-        {
-            _logger.LogError(exception.ToString());
-            return Result<SceneData[], string>.FromError("An unknown error occurred");
-        }
+
+        return apiResponse.Data;
     }
     
-    public async Task<Result<Target[], string>> TryGetUserTargets(string authToken)
+    public async Task<Target[]> TryGetUserTargets(string authToken)
     {
-        try
+        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
+
+        var response = await _httpClient.GetAsync("user/targets");
+
+        var responseBody = await response.Content.ReadAsStringAsync();
+        var apiResponse = JsonSerializer.Deserialize<ApiResponse<Target[]>>(responseBody, _jsonSerializerOptions);
+
+        if (apiResponse is null)
         {
-            if (_httpClient.DefaultRequestHeaders.Authorization is null)
-            {
-                _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
-            }
-
-            var response = await _httpClient.GetAsync("user/targets");
-
-            var responseBody = await response.Content.ReadAsStringAsync();
-            var apiResponse = JsonSerializer.Deserialize<ApiResponse<Target[]>>(responseBody, _jsonSerializerOptions);
-
-            if (apiResponse is null)
-            {
-                return Result<Target[], string>.FromError("Response from the server is null");
-            }
-
-            if (apiResponse.ErrorMessage is not null)
-            {
-                return Result<Target[], string>.FromError(apiResponse.ErrorMessage);
-            }
-
-            return Result<Target[], string>.FromOk(apiResponse.Data);
+            throw new InvalidDataException("Response from the server is null");
         }
-        catch (OperationCanceledException _)
+
+        if (apiResponse.ErrorMessage is not null)
         {
-            return Result<Target[], string>.FromError("Cancelled Operation");
+            throw new InvalidOperationException("Response from the server is null");
         }
-        catch (Exception exception)
-        {
-            _logger.LogError(exception.ToString());
-            return Result<Target[], string>.FromError("An unknown error occurred");
-        }
+
+        return apiResponse.Data;
     }
 
-    public async Task<Target?> TryDeleteTarget(string authToken, Target targetToDelete)
+    public async Task<Target> TryDeleteTarget(string authToken, Target targetToDelete)
     {
-        throw new NotImplementedException();
+        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
+
+        var requestUri = $"user/targets?target-id={targetToDelete.Id}";
+        var response = await _httpClient.DeleteAsync(requestUri);
+
+        var responseBody = await response.Content.ReadAsStringAsync();
+        var apiResponse = JsonSerializer.Deserialize<ApiResponse<string>>(responseBody, _jsonSerializerOptions);
+
+        if (apiResponse is null)
+        {
+            throw new InvalidDataException("Response from the server is null");
+        }
+
+        if (apiResponse.ErrorMessage is not null)
+        {
+            throw new InvalidOperationException("Response from the server is null");
+        }
+
+        return targetToDelete;
     }
 }

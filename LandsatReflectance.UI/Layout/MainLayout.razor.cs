@@ -1,13 +1,18 @@
 ﻿using LandsatReflectance.UI.Components;
+using LandsatReflectance.UI.Exceptions;
 using LandsatReflectance.UI.Services;
 using LandsatReflectance.UI.Utils;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using MudBlazor;
 
 namespace LandsatReflectance.UI.Layout;
 
 public partial class MainLayout : LayoutComponentBase
 {
+    [Inject]
+    public required IWebAssemblyHostEnvironment Environment { get; set; }
+    
     [Inject]
     public required ISnackbar Snackbar { get; set; }
     
@@ -29,19 +34,33 @@ public partial class MainLayout : LayoutComponentBase
     {
         if (!CurrentUserService.IsAuthenticated)
         {
-            var authResult = CurrentUserService.TryInitFromLocalStorage();
-            authResult.Match(
-                _ => Unit.Default,
-                errorMsg =>
+            try
+            { 
+                CurrentUserService.TryInitFromLocalStorage();
+            }
+            catch (AuthException authException)
+            {
+                if (!Environment.IsProduction())
                 {
-                    Snackbar.Add(errorMsg, Severity.Error);
-                    return Unit.Default;
-                });
+                    Snackbar.Add(authException.Message, Severity.Error);
+                }
+                else
+                {
+                    _ = AuthException.GenericLoginErrorMessage;
+                    // TODO: Make popup for this thing
+                }
+            }
+            catch (Exception exception)
+            {
+                _ = AuthException.GenericLoginErrorMessage;
+                // TODO: Make popup for this thing
+            }
         }
     }
 
-    protected override async Task OnAfterRenderAsync(bool isFirstRender)
+    protected override Task OnAfterRenderAsync(bool isFirstRender)
     {
+        return Task.CompletedTask;
         /*
         if (Wrs2AreasService.IsInitialized())
         {

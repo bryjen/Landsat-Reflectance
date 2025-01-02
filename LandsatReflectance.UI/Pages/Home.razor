@@ -1,5 +1,4 @@
 ﻿@page "/"
-@using System.Globalization
 @using LandsatReflectance.UI.Models
 
 <PageTitle>Home</PageTitle>
@@ -22,7 +21,9 @@ else
 
 @code {
 
+@* ReSharper disable UnusedParameter.Local *@
     private RenderFragment RenderTargetsList() => __builder =>
+@* ReSharper restore UnusedParameter.Local *@
     {
         <div class="flex flex-col gap-3 pa-4 mx-24 bg-[#2a313c] border border-[#353c44]">
             <div class="flex justify-between items-center">
@@ -54,7 +55,9 @@ else
         </div>
     };
 
+@* ReSharper disable UnusedParameter.Local *@
     private RenderFragment RenderTargetItem(Target target, SceneData? sceneData) => __builder =>
+@* ReSharper restore UnusedParameter.Local *@
     {
         RenderFragment Something(string valueName, string value) => _ =>  // don't rename this
         {
@@ -120,7 +123,7 @@ else
                 </p>
             </div>
             
-            <div class="flex-shrink-0 text-right">
+            <div class="flex flex-shrink-0 text-right gap-2">
                 <MudButton Variant="@Variant.Outlined" Size="@Size.Small">
                     View Detailed
                 </MudButton>
@@ -131,9 +134,12 @@ else
         </div>
     };
 
+@* ReSharper disable UnusedParameter.Local *@
     private RenderFragment RenderTargetDeleteItem(Target target) => __builder =>
+@* ReSharper restore UnusedParameter.Local *@
     {
-        <MudMenu>
+        <MudMenu AnchorOrigin="@Origin.CenterLeft"
+                 TransformOrigin="@Origin.CenterRight">
             <ActivatorContent>
                 <div class="flex justify-between items-center">
                     <MudIconButton Size="@Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Delete"/>
@@ -148,7 +154,8 @@ else
                         </p>
                     </div>
                     <div class="flex gap-4">
-                        <MudButton Size="@Size.Small" Variant="@Variant.Outlined" Color="@Color.Error">
+                        <MudButton Size="@Size.Small" Variant="@Variant.Outlined" Color="@Color.Error"
+                                   OnClick="@(_ => TryDeleteTarget(target))">
                             Delete
                         </MudButton>
                         <MudButton Size="@Size.Small" Variant="@Variant.Outlined">

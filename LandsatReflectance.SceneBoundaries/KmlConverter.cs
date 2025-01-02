@@ -15,7 +15,7 @@ public class KmlConverter
         var xmlNamespaceManager = new XmlNamespaceManager(xmlDoc.NameTable);
         xmlNamespaceManager.AddNamespace("kml", "http://www.opengis.net/kml/2.2");
 
-        var items = xmlDoc.SelectNodes("//kml:Placemark", xmlNamespaceManager);
+        _ = xmlDoc.SelectNodes("//kml:Placemark", xmlNamespaceManager);
         
         
         

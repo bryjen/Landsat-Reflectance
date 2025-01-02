@@ -2,6 +2,7 @@
 using LandsatReflectance.UI.Models;
 using LandsatReflectance.UI.Services.Api;
 using LandsatReflectance.UI.Utils;
+using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using MudBlazor;
 
 namespace LandsatReflectance.UI.Services;
@@ -28,14 +29,17 @@ public class CurrentTargetsService
     }
 
     private readonly ILogger<CurrentUserService> _logger;
+    private readonly IWebAssemblyHostEnvironment _environment;
     private readonly ApiTargetService _apiTargetService;
     
 
     public CurrentTargetsService(
         ILogger<CurrentUserService> logger,
+        IWebAssemblyHostEnvironment webAssemblyHostEnvironment,
         ApiTargetService apiTargetService)
     {
         _logger = logger;
+        _environment = webAssemblyHostEnvironment;
         _apiTargetService = apiTargetService;
     }
 
@@ -58,33 +62,36 @@ public class CurrentTargetsService
 
     internal async Task LoadUserTargetsCore(string authToken)
     {
-        _logger.LogInformation("Loading User targets ...");
+        try
+        {
+            if (!_environment.IsProduction())
+            {
+                _logger.LogInformation("Loading User targets ...");
+            }
 
-        IsLoadingTargets = true;
-        
-        var targetsResult = await _apiTargetService.TryGetUserTargets(authToken);
-        targetsResult.MatchUnit(
-            targets =>
+            IsLoadingTargets = true;
+
+            var targets = await _apiTargetService.TryGetUserTargets(authToken);
+            
+            if (!_environment.IsProduction())
             {
                 _logger.LogInformation($"Loaded {targets.Length} targets");
-                
-                // Prevents double adding in case of a 'mistaken' double call
-                if (!HasLoadedUserTargets)
-                {
-                    foreach (var target in targets)
-                    {
-                        Targets.Add(target);
-                    }
-                    HasLoadedUserTargets = true;
-                }
-            },
-            errorMsg =>
+            }
+
+            if (!HasLoadedUserTargets)  // Prevents double adding in case of a 'mistaken' double call
             {
-                _logger.LogError(errorMsg);
-            });
-        
-        
-        IsLoadingTargets = false;
+                foreach (var target in targets)
+                {
+                    Targets.Add(target);
+                }
+
+                HasLoadedUserTargets = true;
+            }
+        }
+        finally
+        {
+            IsLoadingTargets = false;
+        }
     }
 
 
@@ -92,25 +99,5 @@ public class CurrentTargetsService
     {
         Targets.Clear();
         HasLoadedUserTargets = false;
-    }
-
-    private async Task TryDeleteTarget(
-        Target target, 
-        CancellationToken? cancellationToken = null,
-        Action<Target>? onSuccessfulDelete = null, 
-        Action<Target>? onUnsuccessfulDelete = null)
-    {
-        cancellationToken ??= CancellationToken.None;
-        onSuccessfulDelete ??= _ => { };
-        onUnsuccessfulDelete ??= _ => { };
-        
-        try
-        {
-            
-        }
-        catch (Exception exception)
-        {
-            
-        }
     }
 }

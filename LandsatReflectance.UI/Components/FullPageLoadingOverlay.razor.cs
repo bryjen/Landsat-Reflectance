@@ -32,4 +32,32 @@ public partial class FullPageLoadingOverlay : ComponentBase
         StateHasChanged();
         await onFinishedCallback();
     }
+
+    
+    
+#region 'Manual' controls
+    public void SetOverlayMessage(string overlayMessage)
+    {
+        m_overlayMessage = overlayMessage;
+        StateHasChanged();
+    }
+
+    public void ClearOverlayMessage()
+    {
+        m_overlayMessage = null;
+        StateHasChanged();
+    }
+
+    public void Show()
+    {
+        m_isVisible = true;
+        StateHasChanged();
+    }
+    
+    public void Hide()
+    {
+        m_isVisible = false;
+        StateHasChanged();
+    }
+#endregion
 }
