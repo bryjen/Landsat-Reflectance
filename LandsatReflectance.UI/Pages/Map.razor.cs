@@ -1,16 +1,12 @@
-﻿using System.Collections.Concurrent;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using GoogleMapsComponents;
 using GoogleMapsComponents.Maps;
-// using LandsatReflectance.Common.Models;
-// using LandsatReflectance.Models;
 using LandsatReflectance.UI.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.JSInterop;
 using MudBlazor;
 using MouseEvent = GoogleMapsComponents.Maps.MouseEvent;
-using Polygon = LandsatReflectance.UI.Utils.Polygon;
 
 namespace LandsatReflectance.UI.Pages;
 

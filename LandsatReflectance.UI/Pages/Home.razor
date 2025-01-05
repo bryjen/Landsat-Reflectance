@@ -1,5 +1,4 @@
 ﻿@page "/"
-@using System.Globalization
 @using LandsatReflectance.UI.Models
 
 <PageTitle>Home</PageTitle>
@@ -22,25 +21,45 @@ else
 
 @code {
 
+@* ReSharper disable UnusedParameter.Local *@
     private RenderFragment RenderTargetsList() => __builder =>
+@* ReSharper restore UnusedParameter.Local *@
     {
         <div class="flex flex-col gap-3 pa-4 mx-24 bg-[#2a313c] border border-[#353c44]">
-            <p class="text-xl font-bold">
-                Your Targets:
-            </p>
+            <div class="flex justify-between items-center">
+                <p class="text-xl font-bold">
+                    <MudIcon Size="Size.Large" Icon="@Icons.Material.Filled.SatelliteAlt" Class="pr-2"/>
+                    Your Targets
+                </p>
+                
+                <MudIconButton Size="@Size.Small" Icon="@Icons.Material.Filled.Refresh"
+                               OnClick="@ReInitDictionary" />
+            </div>
 
             <div class="flex flex-col gap-3">
-                @foreach (var target in _targets)
+                @if (CurrentTargetsService.IsLoadingTargets)
                 {
-                    @RenderTargetItem(target)
+                    <div class="flex flex-col gap-4 justify-center items-center">
+                        <p class="font-bold text-lg">Loading your targets ...</p>
+                        <MudProgressLinear Indeterminate Color="@Color.Primary"/>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var (target, sceneData) in _targetSceneDataMap.OrderBy(kv => kv.Key.Id))
+                    {
+                        @RenderTargetItem(target, sceneData)
+                    }
                 }
             </div>
         </div>
     };
 
-    private RenderFragment RenderTargetItem(Target target) => __builder =>
+@* ReSharper disable UnusedParameter.Local *@
+    private RenderFragment RenderTargetItem(Target target, SceneData? sceneData) => __builder =>
+@* ReSharper restore UnusedParameter.Local *@
     {
-        RenderFragment Something(string valueName, string value) => _ =>
+        RenderFragment Something(string valueName, string value) => _ =>  // don't rename this
         {
             <div>
                 <p class="font-bold text-xs">
@@ -52,12 +71,18 @@ else
             </div>
         };
 
-        // Console.WriteLine($"{target.MinCloudCoverFilter * 100} {target.MaxCloudCoverFilter * 100}");
-        
         <div class="relative flex gap-4 items-center justify-between pa-3 bg-[#262c36]">
             
             <div class="flex flex-shrink-0 items-center gap-4">
-                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Width="55px" Height="55px"/>
+                @if (sceneData is null)
+                {
+                    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Width="55px" Height="55px" />
+                }
+                else
+                {
+                    <!-- BUG: Tailwind Styles not working ??? -->
+                    <img src="@sceneData.ThumbnailPath" alt="" style="height: 55px; width: 55px" />
+                }
 
                 <div class="flex flex-col gap-1">
                     <div class="flex gap-4 items-center">
@@ -98,11 +123,48 @@ else
                 </p>
             </div>
             
-            <div class="flex-shrink-0 text-right">
-                <MudButton>something</MudButton>
+            <div class="flex flex-shrink-0 text-right gap-2">
+                <MudButton Variant="@Variant.Outlined" Size="@Size.Small">
+                    View Detailed
+                </MudButton>
+                
+                @RenderTargetDeleteItem(target)
             </div>
 
         </div>
+    };
+
+@* ReSharper disable UnusedParameter.Local *@
+    private RenderFragment RenderTargetDeleteItem(Target target) => __builder =>
+@* ReSharper restore UnusedParameter.Local *@
+    {
+        <MudMenu AnchorOrigin="@Origin.CenterLeft"
+                 TransformOrigin="@Origin.CenterRight">
+            <ActivatorContent>
+                <div class="flex justify-between items-center">
+                    <MudIconButton Size="@Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Delete"/>
+                </div>
+            </ActivatorContent>
+            <ChildContent>
+                <div class="flex flex-col justify-between items-center gap-3 pa-3 border rounded border-[#353c44]">
+                    <div class="flex flex-col justify-between items-center">
+                        <p>Confirm Deletion of</p>
+                        <p class="font-bold">
+                            @($"{target.Latitude:F}\u00b0N, {target.Longitude:F}\u00b0W")
+                        </p>
+                    </div>
+                    <div class="flex gap-4">
+                        <MudButton Size="@Size.Small" Variant="@Variant.Outlined" Color="@Color.Error"
+                                   OnClick="@(_ => TryDeleteTarget(target))">
+                            Delete
+                        </MudButton>
+                        <MudButton Size="@Size.Small" Variant="@Variant.Outlined">
+                            Cancel
+                        </MudButton>
+                    </div>
+                </div>
+            </ChildContent>
+        </MudMenu>
     };
 
 }

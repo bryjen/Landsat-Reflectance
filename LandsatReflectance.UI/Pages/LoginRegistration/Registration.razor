@@ -1,13 +1,9 @@
 ﻿@page "/Register"
-@using LandsatReflectance.UI.Components
 @using LandsatReflectance.UI.Services.Api
-@using Microsoft.AspNetCore.Components.WebAssembly.Hosting
 @layout LoginRegisterLayout
 
 @inject NavigationManager NavigationManager
-@inject IWebAssemblyHostEnvironment Environment 
 @inject ISnackbar Snackbar
-@inject IDialogService DialogService
 @inject ApiUserService ApiUserService 
 
 <style>
@@ -33,7 +29,7 @@
                 <MudProgressCircular Color="@Color.Primary" Indeterminate="@true" />
             </MudOverlay>
 
-            <MudForm Model="@m_userModel" @ref="@m_mudForm" Validation="@m_userModelValidator.ValidateValue" ValidationDelay="0">
+            <MudForm Model="@_userModel" @ref="@_mudForm" Validation="@_userModelValidator.ValidateValue" ValidationDelay="0">
 
                 <MudText Typo="Typo.body2" Class="mb-2">
                     <b>
@@ -42,19 +38,19 @@
                 </MudText>
 
                 <MudTextField id="firstNameField" T="string" Label="First Name" ShrinkLabel
-                              @bind-Value="@m_userModel.FirstName" For="@(() => m_userModel.FirstName)"
+                              @bind-Value="@_userModel.FirstName" For="@(() => _userModel.FirstName)"
                               InputType="InputType.Email" Margin="Margin.Dense" Variant="Variant.Filled" Typo="Typo.caption"
                               OnKeyDown="@HandleKeyDown"
                               Class="my-2"/>
 
                 <MudTextField id="lastNameField" T="string" Label="Last Name" ShrinkLabel
-                              @bind-Value="@m_userModel.LastName" For="@(() => m_userModel.LastName)"
+                              @bind-Value="@_userModel.LastName" For="@(() => _userModel.LastName)"
                               InputType="InputType.Email" Margin="Margin.Dense" Variant="Variant.Filled" Typo="Typo.caption"
                               OnKeyDown="@HandleKeyDown"
                               Class="my-2"/>
 
                 <MudTextField id="emailField" T="string" Label="Email" ShrinkLabel
-                              @bind-Value="@m_userModel.Email" For="@(() => m_userModel.Email)"
+                              @bind-Value="@_userModel.Email" For="@(() => _userModel.Email)"
                               InputType="InputType.Email" Margin="Margin.Dense" Variant="Variant.Filled" Typo="Typo.caption"
                               OnKeyDown="@HandleKeyDown"
                               Class="my-2"/>
@@ -64,7 +60,7 @@
                     Please choose a strong password:
                 </MudText>
                 <MudTextField id="passwordField" T="string" Label="Password" ShrinkLabel
-                              @bind-Value="@m_userModel.Password" For="@(() => m_userModel.Password)"
+                              @bind-Value="@_userModel.Password" For="@(() => _userModel.Password)"
                               Margin="Margin.Dense" Variant="Variant.Filled" Typo="Typo.caption" IconSize="Size.Small"
                               InputType="@m_passwordFieldInputType" Adornment="Adornment.End" AdornmentIcon="@PasswordFieldInputIcon"
                               OnAdornmentClick="OnPasswordVisibilityButtonClicked" AdornmentAriaLabel="Toggle visibility"
@@ -72,7 +68,7 @@
                               Class="my-2"/>
 
                 <MudTextField id="reEnterPasswordField" T="string" Label="Re-enter Password" ShrinkLabel
-                              @bind-Value="@m_userModel.PasswordReEnter" For="@(() => m_userModel.PasswordReEnter)"
+                              @bind-Value="@_userModel.PasswordReEnter" For="@(() => _userModel.PasswordReEnter)"
                               Margin="Margin.Dense" Variant="Variant.Filled" Typo="Typo.caption" IconSize="Size.Small"
                               InputType="@m_passwordFieldInputType" Adornment="Adornment.End" AdornmentIcon="@PasswordFieldInputIcon"
                               OnAdornmentClick="OnPasswordVisibilityButtonClicked" AdornmentAriaLabel="Toggle visibility"

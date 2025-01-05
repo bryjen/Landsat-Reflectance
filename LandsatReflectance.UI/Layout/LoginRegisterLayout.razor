@@ -7,7 +7,6 @@
 
 @inject NavigationManager NavigationManager
 @inject UiService UiService
-@inject CurrentUserService CurrentUserService
 
 <MudThemeProvider Theme="@UiService.MudTheme" IsDarkMode="UiService.IsDarkMode"/>
 <MudPopoverProvider />
@@ -80,7 +79,9 @@
 @code {
     private const string ContentMargins = "margin: 0 15rem";
 
+@* ReSharper disable UnusedParameter.Local *@
     private RenderFragment RenderTextBlock => __builder =>
+@* ReSharper restore UnusedParameter.Local *@
     {
         (string, string, string)[] titleAndBodyContents =
         [

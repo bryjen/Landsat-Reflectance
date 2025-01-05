@@ -49,6 +49,12 @@
         return new Uint8Array(arrayBuffer);
     }
 
+    async function fetchRegionsZipBytes() {
+        const response = await fetch('/data/regions.zip');
+        const arrayBuffer = await response.arrayBuffer();
+        return new Uint8Array(arrayBuffer);
+    }
+
     window.consoleInterop = {
         logList: function (list) {
             console.log(list);  // This will log the list as an expandable object

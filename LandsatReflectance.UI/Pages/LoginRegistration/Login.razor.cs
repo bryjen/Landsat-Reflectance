@@ -1,4 +1,5 @@
 ﻿using LandsatReflectance.UI.Components;
+using LandsatReflectance.UI.Exceptions;
 using LandsatReflectance.UI.Services;
 using LandsatReflectance.UI.Services.Api;
 using LandsatReflectance.UI.Utils;
@@ -34,7 +35,7 @@ public partial class Login : ComponentBase
     
     private string m_email = string.Empty;
     private string m_password = string.Empty;
-    private bool m_isProcessing = false;
+    private bool m_isProcessing;
     
     
 #region Password Text Field
@@ -85,34 +86,46 @@ public partial class Login : ComponentBase
     {
         m_isProcessing = true;
         StateHasChanged();
-        
-        
-        var authTokenResult = await ApiUserService.LoginAsync(m_email, m_password);
-        var loginResult = authTokenResult.Bind(CurrentUserService.TryInitFromAuthToken);
 
-        await loginResult.Match<Task<Unit>, Unit, string>(
-            async _ =>  // on successful login
-            {
-                m_isProcessing = false;
-                StateHasChanged();
+        try
+        {
+            var authToken = await ApiUserService.LoginAsync(m_email, m_password);
+            CurrentUserService.TryInitFromAuthToken(authToken);
 
-                await FullPageLoadingOverlay.ExecuteWithOverlay(
-                    async () => await Task.Delay(TimeSpan.FromSeconds(Rand.GeneratePageSwitchDelayTime())),
-                    () =>
-                    {
-                        NavigationManager.NavigateTo("/");
-                        Snackbar.Add("Successfully logged in.", Severity.Info);
-                        return Task.CompletedTask;
-                    });
-                return Unit.Default;
-            }, 
-            errorMsg =>  // on unsuccessful login
+            // logic for switching to home page
+            m_isProcessing = false;
+            StateHasChanged();
+
+            await FullPageLoadingOverlay.ExecuteWithOverlay(
+                async () => { await Task.Delay(TimeSpan.FromSeconds(Rand.GeneratePageSwitchDelayTime())); },
+                () =>
+                {
+                    NavigationManager.NavigateTo("/");
+                    Snackbar.Add("Successfully logged in.", Severity.Info);
+                    return Task.CompletedTask;
+                });
+        }
+        catch (AuthException authException)
+        {
+            if (!Environment.IsProduction())
             {
-                m_isProcessing = false;
-                StateHasChanged();
-                
-                Snackbar.Add(errorMsg, Severity.Error);
-                return Task.FromResult(Unit.Default);
-            });
+                Snackbar.Add(authException.Message, Severity.Error);
+            }
+            else
+            {
+                _ = AuthException.GenericLoginErrorMessage;
+                // TODO: Make popup for this thing
+            }
+        }
+        catch (Exception exception)
+        {
+            _ = AuthException.GenericLoginErrorMessage;
+            // TODO: Make popup for this thing
+        }
+        finally
+        {
+            m_isProcessing = false;
+            StateHasChanged();
+        }
     }
 }

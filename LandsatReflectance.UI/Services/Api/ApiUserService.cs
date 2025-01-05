@@ -1,6 +1,7 @@
 ﻿using System.Net.Mime;
 using System.Text;
 using System.Text.Json;
+using LandsatReflectance.UI.Exceptions;
 using LandsatReflectance.UI.Models;
 // using LandsatReflectance.Common.Models;
 // using LandsatReflectance.Common.Models.Request;
@@ -27,7 +28,7 @@ public class ApiUserService
         m_httpClient = httpClient;
     }
 
-    public async Task<Result<string, string>> LoginAsync(string email, string password)
+    public async Task<string> LoginAsync(string email, string password)
     {
         var credentialsDict = new Dictionary<string, string>
         {
@@ -37,7 +38,7 @@ public class ApiUserService
 
         try
         {
-            using var requestBody = new StringContent(JsonSerializer.Serialize(credentialsDict, m_jsonSerializerOptions), Encoding.UTF8, "application/json");
+            using var requestBody = new StringContent(JsonSerializer.Serialize(credentialsDict, m_jsonSerializerOptions), Encoding.UTF8,"application/json");
             var response = await m_httpClient.PostAsync("user", requestBody);
 
             var responseBody = await response.Content.ReadAsStringAsync();
@@ -45,25 +46,28 @@ public class ApiUserService
 
             if (apiResponse is null)
             {
-                return Result<string, string>.FromError("Response from the server is null");
+                throw new AuthException("Response from the server is null");
             }
 
             if (apiResponse.ErrorMessage is not null)
             {
-                return Result<string, string>.FromError(apiResponse.ErrorMessage);
+                throw new AuthException(apiResponse.ErrorMessage);
             }
 
-            var authToken = apiResponse.Data;
-            return Result<string, string>.FromOk(authToken);
+            return apiResponse.Data;
+        }
+        catch (AuthException)
+        {
+            throw;
         }
         catch (Exception exception)
         {
             m_logger.LogError(exception.ToString());
-            return Result<string, string>.FromError("An unknown error occurred");
+            throw;
         }
     }
 
-    public async Task<Result<string, string>> RegisterAsync(string email, string firstName, string lastName, string password, bool isEmailEnabled)
+    public async Task<string> RegisterAsync(string email, string firstName, string lastName, string password, bool isEmailEnabled)
     {
         var userInfoDict = new Dictionary<string, object>
         {
@@ -84,21 +88,24 @@ public class ApiUserService
 
             if (apiResponse is null)
             {
-                return Result<string, string>.FromError("Response from the server is null");
+                throw new AuthException("Response from the server is null");
             }
 
             if (apiResponse.ErrorMessage is not null)
             {
-                return Result<string, string>.FromError(apiResponse.ErrorMessage);
+                throw new AuthException(apiResponse.ErrorMessage);
             }
 
-            var authToken = apiResponse.Data;
-            return Result<string, string>.FromOk(authToken);
+            return apiResponse.Data;
+        }
+        catch (AuthException)
+        {
+            throw;
         }
         catch (Exception exception)
         {
             m_logger.LogError(exception.ToString());
-            return Result<string, string>.FromError("An unknown error occurred");
+            throw;
         }
     }
 }
