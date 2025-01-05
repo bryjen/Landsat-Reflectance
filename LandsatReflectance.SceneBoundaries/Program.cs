@@ -22,10 +22,13 @@ class Program
             Directory.CreateDirectory(outputDirectory);
         }
         
-        var dir = KmlConverter.Convert(depth: 2, outputDirectory, kmlFilePath);
-        if (dir is not null)
+        var output = KmlConverter.Convert(depth: 2, outputDirectory, kmlFilePath);
+        if (output is not null)
         {
-            Log.Information(dir);
+            Log.Information(output);
+
+
+            var something = SceneManager.TryLoadFromFile(output);
         }
     }
 }
