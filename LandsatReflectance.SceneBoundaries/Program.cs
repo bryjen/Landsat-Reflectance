@@ -22,13 +22,16 @@ class Program
             Directory.CreateDirectory(outputDirectory);
         }
         
-        var output = KmlConverter.Convert(depth: 2, outputDirectory, kmlFilePath);
+        var output = KmlConverter.Convert(depth: 5, outputDirectory, kmlFilePath);
+
         if (output is not null)
         {
             Log.Information(output);
 
-
-            var something = SceneManager.TryLoadFromFile(output);
+            var bytes = File.ReadAllBytes(output);
+            var sceneManager = SceneManager.TryLoadFromBytes(bytes);
+            var scenes = sceneManager.GetScenes(new LatLong(45.50371351218764f, -73.56731958677688f));
+            Console.WriteLine(scenes);
         }
     }
 }

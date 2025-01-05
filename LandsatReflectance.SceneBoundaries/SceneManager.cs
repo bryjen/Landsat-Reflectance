@@ -29,11 +29,61 @@ public struct RegionInfo
 
 public class SceneManager
 {
-    public List<RegionInfo> RegionInfos { get; private set; } = new();
-    public Dictionary<int, Lazy<List<Wrs2Scene>>> RegionIdToScenesMap { get; private set; } = new();
+    private List<RegionInfo> RegionInfos { get; set; } = new();
+    private Dictionary<int, Lazy<List<Wrs2Scene>>> RegionIdToScenesMap { get; set; } = new();
 
+    // Customizable logger callback methods
+    public Action<string> LogInfo { get; set; } = _ => { };
+    public Action<string> LogWarning { get; set; } = _ => { };
+    public Action<string> LogError { get; set; } = _ => { };
 
+    private static readonly IPointInScene Ps = new NetTopologySuitePointInScene();
     
+    
+    public IEnumerable<Wrs2Scene> GetScenes(LatLong latLong)
+    {
+        int? regionId = null;
+        foreach (var regionInfo in RegionInfos)
+        {
+            var asWrs2Scene = new Wrs2Scene
+            {
+                UpperLeft = regionInfo.UpperLeft,
+                UpperRight = regionInfo.UpperRight,
+                LowerLeft = regionInfo.LowerLeft,
+                LowerRight = regionInfo.LowerRight,
+            };
+            
+            if (Ps.IsPointInScene(latLong, asWrs2Scene))
+            {
+                regionId = regionInfo.Id;
+            }
+        }
+
+        // TODO: Create log error message
+        
+        if (regionId is null)
+        {
+            LogError("");
+            return [];
+        }
+
+        if (!RegionIdToScenesMap.TryGetValue(regionId.Value, out var scenes))
+        {
+            LogError("");
+            return [];
+        }
+
+        var scenesToReturn = new List<Wrs2Scene>();
+        foreach (var scene in scenes.Value)
+        {
+            if (Ps.IsPointInScene(latLong, scene))
+            {
+                scenesToReturn.Add(scene);
+            }
+        }
+
+        return scenesToReturn;
+    }
     
     
 #region Conversions
@@ -91,14 +141,14 @@ public class SceneManager
                 LowerRight = regionAsScene.LowerRight,
             }).ToList();
     }
-    
 
-    public static SceneManager TryLoadFromFile(string regionsZipFilePath)
+
+    public static SceneManager TryLoadFromBytes(byte[] regionsFileBytes)
     {
         var sceneManager = new SceneManager();
 
-        using var zipFileStream = new FileStream(regionsZipFilePath, FileMode.Open);
-        using var zipArchive = new ZipArchive(zipFileStream, ZipArchiveMode.Read);
+        using var memoryStream = new MemoryStream(regionsFileBytes);
+        using var zipArchive = new ZipArchive(memoryStream, ZipArchiveMode.Read);
 
         foreach (var zipArchiveEntry in zipArchive.Entries)
         {

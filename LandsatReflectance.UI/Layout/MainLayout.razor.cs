@@ -1,4 +1,5 @@
-﻿using LandsatReflectance.UI.Components;
+﻿using LandsatReflectance.SceneBoundaries;
+using LandsatReflectance.UI.Components;
 using LandsatReflectance.UI.Exceptions;
 using LandsatReflectance.UI.Services;
 using LandsatReflectance.UI.Utils;
@@ -58,9 +59,10 @@ public partial class MainLayout : LayoutComponentBase
         }
     }
 
-    protected override Task OnAfterRenderAsync(bool isFirstRender)
+    protected override async Task OnAfterRenderAsync(bool isFirstRender)
     {
-        return Task.CompletedTask;
+        await Wrs2AreasService.GetScenes(new LatLong(45.50371351218764f, -73.56731958677688f));
+        
         /*
         if (Wrs2AreasService.IsInitialized())
         {
