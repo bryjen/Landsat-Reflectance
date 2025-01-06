@@ -1,6 +1,9 @@
 ﻿using System.Diagnostics;
 using GoogleMapsComponents;
 using GoogleMapsComponents.Maps;
+using LandsatReflectance.SceneBoundaries;
+using LandsatReflectance.UI.Components;
+using LandsatReflectance.UI.Models;
 using LandsatReflectance.UI.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
@@ -13,6 +16,9 @@ namespace LandsatReflectance.UI.Pages;
 public partial class Map : ComponentBase
 {
     [Inject]
+    public required ILogger<Map> Logger { get; set; } 
+    
+    [Inject]
     public required IWebAssemblyHostEnvironment Environment { get; set; } 
     
     [Inject]
@@ -23,6 +29,10 @@ public partial class Map : ComponentBase
     
     [Inject]
     public required Wrs2AreasService Wrs2AreasService { get; set; } 
+    
+    
+    [CascadingParameter]
+    public required FullPageLoadingOverlay FullPageLoadingOverlay { get; set; } 
     
     
     private GoogleMap m_googleMap = null!;
@@ -47,6 +57,21 @@ public partial class Map : ComponentBase
         };
     }
 
+    protected override async Task OnAfterRenderAsync(bool isFirstRender)
+    {
+        if (isFirstRender && !Wrs2AreasService.IsInit())
+        {
+            FullPageLoadingOverlay.SetOverlayMessage("Initializing map data ...");
+            FullPageLoadingOverlay.Show();
+            
+            _ = await Wrs2AreasService.InitIfNull();
+            
+            FullPageLoadingOverlay.Hide();
+            FullPageLoadingOverlay.ClearOverlayMessage();
+        }
+    }
+
+    
     private async Task OnAfterMapRender()
     {
         if (Environment.IsDevelopment())
@@ -57,41 +82,11 @@ public partial class Map : ComponentBase
         await m_googleMap.InteropObject.AddListener<MouseEvent>("click", mouseEvents => { _ = OnClick(mouseEvents); });
     }
 
+    
     private async Task OnClick(MouseEvent e)
     {
-        if (Environment.IsDevelopment())
-        {
-            Snackbar.Add($"Left clicked: {e.LatLng.Lat:F}, {e.LatLng.Lng:F}", Severity.Info);
-
-            var stopwatch = new Stopwatch();
-            stopwatch.Start();
-            
-            var pathAndRows = new List<(int, int)>();
-            
-            /*
-            foreach (var area in Wrs2AreasService.Wrs2Areas)
-            {
-                const double tolerance = 5;
-                var latTooFar = area.LatLongCoordinates.Select(latLong => latLong.Latitude).Any(lat => Math.Abs(lat - e.LatLng.Lat) >= tolerance);
-                var longTooFar = area.LatLongCoordinates.Select(latLong => latLong.Longitude).Any(@long => Math.Abs(@long - e.LatLng.Lng) >= tolerance);
-                if (latTooFar || longTooFar)
-                    continue;
-
-                if (Polygon.IsPointInPolygon(area.LatLongCoordinates, (e.LatLng.Lat, e.LatLng.Lng)))
-                {
-                    pathAndRows.Add((area.Metadata.Path, area.Metadata.Row));
-                }
-            }
-             */
-
-            
-            stopwatch.Stop();
-            Console.WriteLine($"[Map] {e.LatLng.Lat:F}, {e.LatLng.Lng:F}, finished in {stopwatch.Elapsed.TotalSeconds:F}s " +
-                              $"({stopwatch.Elapsed.TotalMilliseconds}ms). Found {pathAndRows.Count} areas.");
-            
-            var pathsAndRowsStr = string.Join("\n", pathAndRows.Select((tuple, i) => $"{i}. {tuple.Item1}, {tuple.Item2}"));
-            Console.WriteLine(pathsAndRowsStr);
-        }
+        Snackbar.Add($"Left clicked: {e.LatLng.Lat:F}, {e.LatLng.Lng:F}", Severity.Info);
+        var scenes = await Wrs2AreasService.GetScenes(new LatLong((float) e.LatLng.Lat, (float) e.LatLng.Lng));
         
         var markerOptions = new MarkerOptions
         {
@@ -107,49 +102,18 @@ public partial class Map : ComponentBase
         };
 
         var newMarker = await Marker.CreateAsync(m_googleMap.JsRuntime, markerOptions);
+        await newMarker.AddListener<MouseEvent>("click", async mouseEvent =>
+        {
+            await mouseEvent.Stop();
+        });
         
-        if (Environment.IsDevelopment())
+        
+        if (!Environment.IsProduction())
         {
             Snackbar.Add($"Left clicked: {e.LatLng.Lat:F}, {e.LatLng.Lng:F}", Severity.Info);
-            await newMarker.AddListener<MouseEvent>("click", async mouseEvent =>
-            {
-                await mouseEvent.Stop();
-                // await OnMarkerClicked(newTarget, newMarker);
-            });
+            
+            Logger.LogInformation($"[Map] {e.LatLng.Lat:F}, {e.LatLng.Lng:F}, Found {scenes.Count} areas.");
+            Logger.LogInformation(string.Join("\n", scenes.Select((tuple, i) => $"{i}. {tuple.Path}, {tuple.Row}")));
         }
-    }
-
-    /*
-    private async Task OnMarkerClicked(Target target, Marker marker)
-    {
-        string markerLabel = await marker.GetLabelText();
-        string markerTitle = await marker.GetTitle();
-        Snackbar.Add($"Marker clicked with: (Label: \"{markerLabel}\"), (Title: \"{markerTitle}\")", Severity.Info);
-    }
-     */
-    
-    // TODO: Re-write this
-    public static List<T[]> SplitArray<T>(T[] array, int n)
-    {
-        var result = new List<T[]>();
-        int chunkSize = array.Length / n;
-        int remainder = array.Length % n;
-        int startIndex = 0;
-
-        for (int i = 0; i < n; i++)
-        {
-            // If there is a remainder, distribute the extra elements to the first few subarrays
-            int currentChunkSize = chunkSize + (remainder > 0 ? 1 : 0);
-            remainder--;
-
-            // Create the subarray and copy elements from the original array
-            var chunk = new T[currentChunkSize];
-            Array.Copy(array, startIndex, chunk, 0, currentChunkSize);
-            result.Add(chunk);
-
-            startIndex += currentChunkSize;  // Move the starting index for the next subarray
-        }
-
-        return result;
     }
 }

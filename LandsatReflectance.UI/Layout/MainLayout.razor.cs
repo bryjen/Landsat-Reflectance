@@ -61,7 +61,7 @@ public partial class MainLayout : LayoutComponentBase
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
     {
-        await Wrs2AreasService.GetScenes(new LatLong(45.50371351218764f, -73.56731958677688f));
+        // await Wrs2AreasService.GetScenes(new LatLong(45.50371351218764f, -73.56731958677688f));
         
         /*
         if (Wrs2AreasService.IsInitialized())
