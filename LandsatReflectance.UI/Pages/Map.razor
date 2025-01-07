@@ -5,7 +5,7 @@
 
 <MudPaper Elevation="5" Style="@ParentDivHeight">
     <div class="relative h-full w-full">
-        @Something
+        @RenderSelectionPopup
         <GoogleMap @ref="@m_googleMap" Id="map1" Options="@m_mapOptions" Height="100%" OnAfterInit="OnAfterMapRender"></GoogleMap>
     </div>
 </MudPaper>
@@ -13,13 +13,13 @@
 @code {
 
 // ReSharper disable UnusedParameter.Local
-    private RenderFragment Something => __builder =>
+    private RenderFragment RenderSelectionPopup => __builder =>
 // ReSharper restore UnusedParameter.Local
     {
         if (_targetCreationInfo is not null)
         {
-            <div class="absolute bg-[#151b23] z-10 top-4 right-4 p-4 border border-[#b2b0bf]">
-                <div class="mb-4">
+            <div class="absolute w-3/12 bg-[#151b23] z-10 top-4 right-4 p-4 border border-[#b2b0bf]">
+                <div class="absolute mb-4">
                     <MudIconButton Icon="@Icons.Material.Filled.Close" 
                                    Color="Color.Error" 
                                    Variant="Variant.Outlined" 
@@ -44,7 +44,7 @@
                         <div class="flex items-center justify-center w-1/2 select-none">Row</div>
                     </div>
 
-                    @foreach (var scene in _targetCreationInfo.ScenePolygonMap.Keys)
+                    @foreach (var scene in _targetCreationInfo.ScenePolygonMap.Keys.OrderBy(scene => scene.Path))
                     {
                         var isSelectedOption = _targetCreationInfo.SelectedPathRow is not null
                                                && _targetCreationInfo.SelectedPathRow.Value.Path == scene.Path
@@ -60,7 +60,7 @@
                             .Build();
 
                         <div class="@classes"
-                             @onclick="@(async _ => await OnSceneSelectedInMenu(_targetCreationInfo.Coordinates, scene.Path, scene.Row))">
+                             @onclick="@(async _ => await OnSceneSelectedInMenu(scene.Path, scene.Row))">
                             <div class="flex items-center justify-center w-1/2 select-none">@scene.Path</div>
                             <div class="flex items-center justify-center w-1/2 select-none">@scene.Row</div>
                         </div>
@@ -70,10 +70,19 @@
                 @if (_targetCreationInfo.SelectedPathRow is not null)
                 {
                     var (path, row) = _targetCreationInfo.SelectedPathRow.Value;
-                    <div class="flex items-center justify-center mt-4">
-                        <MudButton Variant="Variant.Outlined" 
+                    <div class="flex gap-4 mt-4 items-center justify-center mt-4">
+                        <MudButton Variant="Variant.Filled"
                                    Size="Size.Small"
-                                   OnClick="@(async _ => await AddTarget(_targetCreationInfo.Coordinates, path, row))">
+                                   Disabled
+                                   >
+                            View Detailed
+                        </MudButton>
+                        
+                        <MudButton Variant="Variant.Filled"
+                                   Size="Size.Small"
+                                   Color="Color.Primary"
+                                   OnClick="@(async _ => await AddTarget(_targetCreationInfo.Coordinates, path, row))"
+                                   >
                             Add Target
                         </MudButton>
                     </div>

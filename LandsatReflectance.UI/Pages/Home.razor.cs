@@ -3,7 +3,6 @@ using LandsatReflectance.UI.Components;
 using LandsatReflectance.UI.Models;
 using LandsatReflectance.UI.Services;
 using LandsatReflectance.UI.Services.Api;
-using LandsatReflectance.UI.Utils;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using MudBlazor;
@@ -13,10 +12,13 @@ namespace LandsatReflectance.UI.Pages;
 public partial class Home : ComponentBase
 {
     [Inject]
+    public required ILogger<Home> Logger { get; set; }
+    
+    [Inject]
     public required IWebAssemblyHostEnvironment Environment { get; set; }
     
     [Inject]
-    public required ILogger<Home> Logger { get; set; }
+    public required NavigationManager NavigationManager { get; set; }
     
     [Inject]
     public required ISnackbar Snackbar { get; set; }
@@ -63,7 +65,7 @@ public partial class Home : ComponentBase
         }
     }
 
-    public void Dispose()
+    protected void Dispose()
     {
         #nullable disable
         CurrentUserService.OnUserAuthenticated -= CurrentTargetsService.SaveTargetsCreatedOffline;

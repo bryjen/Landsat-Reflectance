@@ -99,6 +99,14 @@ public partial class Map : ComponentBase
         };
     }
 
+    protected override void OnParametersSet()
+    {
+        CurrentUserService.OnUserAuthenticated += CurrentTargetsService.SaveTargetsCreatedOffline;
+        CurrentUserService.OnUserAuthenticated += CurrentTargetsService.LoadUserTargets;
+        
+        CurrentUserService.OnUserLogout += CurrentTargetsService.OnUserLogout;
+    }
+
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
     {
         if (isFirstRender && !Wrs2AreasService.IsInit())
@@ -111,16 +119,35 @@ public partial class Map : ComponentBase
             FullPageLoadingOverlay.Hide();
             FullPageLoadingOverlay.ClearOverlayMessage();
         }
+        
+        
+        // Logic to load targets based on cookie auth
+        if (isFirstRender && CurrentUserService.IsAuthenticated && !CurrentTargetsService.HasLoadedUserTargets)
+        {
+            await CurrentTargetsService.LoadUserTargetsCore(CurrentUserService.Token);
+            await RenderTargetsAsMarkersOnMap();
+        }
+    }
+    
+    protected void Dispose()
+    {
+        #nullable disable
+        CurrentUserService.OnUserAuthenticated -= CurrentTargetsService.SaveTargetsCreatedOffline;
+        CurrentUserService.OnUserAuthenticated -= CurrentTargetsService.LoadUserTargets;
+        
+        CurrentUserService.OnUserLogout -= CurrentTargetsService.OnUserLogout;
+        #nullable enable
     }
 
     
     private async Task OnAfterMapRender()
     {
-        await m_googleMap.InteropObject.AddListener<MouseEvent>("click", mouseEvents => { _ = OnClick(mouseEvents); });
+        await m_googleMap.InteropObject.AddListener<MouseEvent>("click", mouseEvents => { _ = OnMapClick(mouseEvents); });
+        await RenderTargetsAsMarkersOnMap();
     }
 
     
-    private async Task OnClick(MouseEvent e)
+    private async Task OnMapClick(MouseEvent e)
     {
         var coordinates = new LatLong((float)e.LatLng.Lat, (float)e.LatLng.Lng);
         var scenes = await Wrs2AreasService.GetScenes(coordinates);
@@ -128,8 +155,7 @@ public partial class Map : ComponentBase
         var scenePolygonMap = new Dictionary<Wrs2Scene, Polygon>();
         foreach (var scene in scenes)
         {
-            var pathRow = _targetCreationInfo?.SelectedPathRow;
-            var polygon = await DrawScenePolygon(pathRow?.Path, pathRow?.Row, scene);
+            var polygon = await DrawSceneOnMap(scene);
             scenePolygonMap.TryAdd(scene, polygon);
         }
         
@@ -176,7 +202,7 @@ public partial class Map : ComponentBase
         StateHasChanged();  // re-render to display selection pop-up
     }
 
-    private async Task<Polygon> DrawScenePolygon(int? path, int? row, Wrs2Scene wrs2Scene)
+    private async Task<Polygon> DrawSceneOnMap(Wrs2Scene wrs2Scene)
     {
         var polygon = await Polygon.CreateAsync(m_googleMap.JsRuntime, CreatePolygonOptions(RegionColor));
         var latLongList = new List<LatLong>
@@ -192,8 +218,7 @@ public partial class Map : ComponentBase
         return polygon;
     }
 
-    
-    private async Task OnSceneSelectedInMenu(LatLong latLong, int path, int row)
+    private async Task OnSceneSelectedInMenu(int path, int row)
     {
         if (_targetCreationInfo is null)
         {
@@ -258,19 +283,20 @@ public partial class Map : ComponentBase
     {
         try
         {
-            var requestBodyDict = new Dictionary<string, object>();
-            requestBodyDict.Add("path", path);
-            requestBodyDict.Add("row", row);
-            requestBodyDict.Add("latitude", latLong.Latitude);
-            requestBodyDict.Add("longitude", latLong.Longitude);
-            requestBodyDict.Add("minCloudCoverFilter", 0d);
-            requestBodyDict.Add("maxCloudCoverFilter", 1d);
-            requestBodyDict.Add("notificationOffset", "01:00:00");
+            var requestBodyDict = new Dictionary<string, object>
+            {
+                { "path", path },
+                { "row", row },
+                { "latitude", latLong.Latitude },
+                { "longitude", latLong.Longitude },
+                { "minCloudCoverFilter", 0d },
+                { "maxCloudCoverFilter", 1d },
+                { "notificationOffset", "01:00:00" }
+            };
 
             if (!Environment.IsProduction())
             {
-                Logger.LogInformation(JsonSerializer.Serialize(requestBodyDict,
-                    new JsonSerializerOptions { WriteIndented = true }));
+                Logger.LogInformation(JsonSerializer.Serialize(requestBodyDict, new JsonSerializerOptions { WriteIndented = true }));
             }
 
             // TODO: Add logic for 'adding' targets when you're not logged in
@@ -283,7 +309,9 @@ public partial class Map : ComponentBase
             FullPageLoadingOverlay.ClearOverlayMessage();
             
             CurrentTargetsService.Targets.Add(target);
+            
             await ClearTargetCreationInfo();
+            await RenderTargetsAsMarkersOnMap();
         }
         catch (Exception)
         {
@@ -291,9 +319,41 @@ public partial class Map : ComponentBase
         }
     }
 
-    // Google map api uses its own type. Converts our type to that.
-    private static LatLngLiteral ToMapLatlngLiteral(LatLong latLong) => new(latLong.Latitude, latLong.Longitude);
+    private async Task RenderTargetsAsMarkersOnMap()
+    {
+        foreach (var target in CurrentTargetsService.Targets)
+        {
+            var markerOptions = new MarkerOptions
+            {
+                Position = new LatLngLiteral(target.Latitude, target.Longitude),
+                Map = m_googleMap.InteropObject,
+                Draggable = false,
+                Icon = new Icon
+                {
+                    Url = "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+                }
+            };
 
+            var _ = await Marker.CreateAsync(m_googleMap.JsRuntime, markerOptions);
+            /*
+            await newMarker.AddListener<MouseEvent>("click", async mouseEvent =>
+            {
+                await mouseEvent.Stop();
+            });
+             */
+        }
+        
+        await RefreshGoogleMaps();
+    }
+
+
+    private async Task RefreshGoogleMaps()
+    {
+        // Changing a property should 'refresh' and re-render the map
+        // The below shouldn't change nothin
+        await m_googleMap.InteropObject.SetZoom(await m_googleMap.InteropObject.GetZoom());
+    }
+    
     private PolygonOptions CreatePolygonOptions(string colorString) => new()
     {
         Map = m_googleMap.InteropObject,
@@ -302,4 +362,8 @@ public partial class Map : ComponentBase
         FillColor = colorString,
         FillOpacity = 0.25f,
     };
+    
+    // Google map api uses its own type. Converts our type to that.
+    private static LatLngLiteral ToMapLatlngLiteral(LatLong latLong) => 
+        new(latLong.Latitude, latLong.Longitude);
 }
