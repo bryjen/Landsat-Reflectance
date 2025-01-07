@@ -38,8 +38,7 @@ public class ApiTargetService
         var response = await _httpClient.GetAsync($"scene?path={path}&row={row}&results={results}", cancellationToken.Value);
 
         var responseBody = await response.Content.ReadAsStringAsync();
-        var apiResponse =
-            JsonSerializer.Deserialize<ApiResponse<SceneData[]>>(responseBody, _jsonSerializerOptions);
+        var apiResponse = JsonSerializer.Deserialize<ApiResponse<SceneData[]>>(responseBody, _jsonSerializerOptions);
 
         if (apiResponse is null)
         {

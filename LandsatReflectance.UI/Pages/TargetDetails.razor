@@ -134,7 +134,7 @@
                 <MudCollapse Expanded="@_showQuickSummary">
                     <MudDivider Class="mb-2" Style="border-color: #353c44"/>
 
-                    <div class="grid grid-cols-[30%_70%] gap-y-2">
+                    <div class="grid grid-cols-[30%_70%] gap-y-3">
                         <p class="flex items-center font-bold">Target ID:</p>
                         <p class="flex items-center text-sm">@_target.Id</p>
 
@@ -148,17 +148,52 @@
                             @(new MarkupString($"<b>{_target.Latitude:F2}</b>\u00b0N, <b>{_target.Longitude:F2}</b>\u00b0W"))
                         </p>
 
+                        @*  Evaluate whether below should be displayed here
                         <p class="flex items-center font-bold">Min. CC:</p>
                         <p class="flex items-center text-xs">@_target.MinCloudCoverFilter</p>
 
                         <p class="flex items-center font-bold">Max. CC:</p>
                         <p class="flex items-center text-xs">@_target.MaxCloudCoverFilter</p>
+*@
 
                         @* Spaces basically *@
                         @for (int i = 0; i < 4; i++)
                         {
                             <p class="select-none"/>
                         }
+
+                        @{
+                            var locValue = $"{_target.Latitude}+{_target.Longitude}";
+                            var googleMapsUri = $"http://maps.google.com/maps?z=12&t=m&q=loc:{locValue}";
+
+                            var classes = new CssBuilder()
+                                .AddClass("flex")
+                                .AddClass("items-center")
+                                .AddClass("font-bold")
+                                .AddClass("underline")
+                                .AddClass("text-sky-400", _location.HasValue)
+                                .Build();
+                        }
+
+                        <a href="@googleMapsUri" target="_blank" class="@classes">
+                            Location:
+                        </a>
+                        <div class="flex items-center gap-2">
+                            @if (_location.HasValue)
+                            {
+                                <MudIcon Size="@Size.Small" Icon="@Icons.Material.Filled.LocationOn" />
+                                <p class="flex items-center text-xs">
+                                    @($"{_location.Value.City}, {_location.Value.Country}")
+                                </p>
+                            }
+                            else
+                            {
+                                <MudIcon Size="@Size.Small" Icon="@Icons.Material.Filled.Warning" />
+                                <p class="flex items-center text-xs">
+                                    Could not load any location data
+                                </p>
+                            }
+                        </div>
 
                         <p class="flex items-center font-bold">Display ID:</p>
                         <p class="flex items-center text-xs">@currentScene.DisplayId</p>

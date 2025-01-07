@@ -1,4 +1,5 @@
-﻿using LandsatReflectance.UI.Models;
+﻿using LandsatReflectance.SceneBoundaries;
+using LandsatReflectance.UI.Models;
 using LandsatReflectance.UI.Services;
 using LandsatReflectance.UI.Services.Api;
 using Microsoft.AspNetCore.Components;
@@ -18,6 +19,9 @@ public partial class TargetDetails : ComponentBase
     public required ApiTargetService ApiTargetService { get; set; }
     
     [Inject]
+    public required GeocodingService GeocodingService { get; set; }
+    
+    [Inject]
     public required CurrentUserService CurrentUserService { get; set; }
     
     [Inject]
@@ -31,12 +35,14 @@ public partial class TargetDetails : ComponentBase
     private bool _isLoading = true;
     private bool _showQuickSummary;
     private bool _showImageLoadingDelayWarning = true;
+    private bool _isLoadingLocation;
     
     private Target? _target;
     private string? _errorMsg;
 
     private int _currentSceneIndex = 0;
     private List<SceneData> _sceneDatas = new();
+    private (string City, string Country)? _location = null;
 
     // Zoom style value in %
     private double _imageZoom = 33.3;
@@ -63,8 +69,9 @@ public partial class TargetDetails : ComponentBase
             TryInitTarget();
             await TryGetSceneData();
             _isLoading = false;
-            
             StateHasChanged();
+            
+            TryGetLocation();
         }
     }
     
@@ -115,5 +122,27 @@ public partial class TargetDetails : ComponentBase
 
         var sceneDatas = await ApiTargetService.TryGetSceneData(CurrentUserService.Token, _target.Path, _target.Row, 10);
         _sceneDatas = sceneDatas.OrderByDescending(sceneData => sceneData.PublishDate).ToList();
+    }
+
+    private async void TryGetLocation()
+    {
+        if (_target is not null)
+        {
+            try
+            {
+                _isLoadingLocation = true;
+                StateHasChanged();
+                
+                var asLatLong = new LatLong((float)_target.Latitude, (float)_target.Longitude);
+                _location = await GeocodingService.GetNearestCity(asLatLong);
+                
+                _isLoadingLocation = false;
+                StateHasChanged();
+            }
+            catch (Exception)
+            {
+                // TODO: Display some message here
+            }
+        }
     }
 }
