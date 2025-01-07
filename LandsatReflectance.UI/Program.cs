@@ -61,6 +61,7 @@ builder.Services.AddScoped<Wrs2AreasService>();
 builder.Services.AddScoped<UiService>();
 builder.Services.AddScoped<ApiUserService>();
 builder.Services.AddScoped<ApiTargetService>();
+builder.Services.AddScoped<GeocodingService>();
 builder.Services.AddScoped<CurrentUserService>();
 builder.Services.AddScoped<CurrentTargetsService>();
 

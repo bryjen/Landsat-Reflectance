@@ -10,11 +10,13 @@
 </style>
 
 <MudOverlay Visible="@m_isVisible" DarkBackground="@true" Absolute="@true" Class="full-page-element">
-    <MudProgressCircular Color="@Color.Primary" Indeterminate="@true"></MudProgressCircular>
-    @if (m_overlayMessage is not null)
-    {
-        <MudText Align="@Align.Center" Style="white-space: pre-wrap">
-            @m_overlayMessage
-        </MudText>
-    }
+    <div class="flex flex-col items-center justify-center gap-2">
+        <MudProgressCircular Size="Size.Large" Color="@Color.Primary" Indeterminate="@true"></MudProgressCircular>
+        @if (m_overlayMessage is not null)
+        {
+            <p class="font-bold text-xl text-white" style="white-space: pre-wrap">
+                @m_overlayMessage
+            </p>
+        }
+    </div>
 </MudOverlay>

@@ -1,9 +1,94 @@
 ﻿@page "/Map"
 @using GoogleMapsComponents
+@using MudBlazor.Utilities
 
 
 <MudPaper Elevation="5" Style="@ParentDivHeight">
-    <div style="width: 100%; height: 100%">
+    <div class="relative h-full w-full">
+        @RenderSelectionPopup
         <GoogleMap @ref="@m_googleMap" Id="map1" Options="@m_mapOptions" Height="100%" OnAfterInit="OnAfterMapRender"></GoogleMap>
     </div>
 </MudPaper>
+
+@code {
+
+// ReSharper disable UnusedParameter.Local
+    private RenderFragment RenderSelectionPopup => __builder =>
+// ReSharper restore UnusedParameter.Local
+    {
+        if (_targetCreationInfo is not null)
+        {
+            <div class="absolute w-3/12 bg-[#151b23] z-10 top-4 right-4 p-4 border border-[#b2b0bf]">
+                <div class="absolute mb-4">
+                    <MudIconButton Icon="@Icons.Material.Filled.Close" 
+                                   Color="Color.Error" 
+                                   Variant="Variant.Outlined" 
+                                   Size="Size.Small"
+                                   OnClick="@(async _ => await ClearTargetCreationInfo())"/>
+                </div>
+                
+                <div class="flex flex-col items-center justify-center gap-1">
+                    <p>
+                        You Selected:
+                    </p>
+                    <p class="font-bold">
+                        @_targetCreationInfo.Coordinates.ToString()
+                    </p>
+                </div>
+
+                <p class="mt-6">Please select a scene:</p>
+
+                <div class=" mt-2 border border-[#b2b0bf]">
+                    <div class="flex group p-1 border-b border-[#b2b0bf]">
+                        <div class="flex items-center justify-center w-1/2 select-none">Path</div>
+                        <div class="flex items-center justify-center w-1/2 select-none">Row</div>
+                    </div>
+
+                    @foreach (var scene in _targetCreationInfo.ScenePolygonMap.Keys.OrderBy(scene => scene.Path))
+                    {
+                        var isSelectedOption = _targetCreationInfo.SelectedPathRow is not null
+                                               && _targetCreationInfo.SelectedPathRow.Value.Path == scene.Path
+                                               && _targetCreationInfo.SelectedPathRow.Value.Row == scene.Row;
+
+                        var classes = new CssBuilder()
+                            .AddClass("flex")
+                            .AddClass("group")
+                            .AddClass("p-1")
+                            .AddClass("cursor-pointer")
+                            .AddClass("hover:bg-[#2a313c]", !isSelectedOption)
+                            .AddClass("bg-[#333b48]", isSelectedOption)
+                            .Build();
+
+                        <div class="@classes"
+                             @onclick="@(async _ => await OnSceneSelectedInMenu(scene.Path, scene.Row))">
+                            <div class="flex items-center justify-center w-1/2 select-none">@scene.Path</div>
+                            <div class="flex items-center justify-center w-1/2 select-none">@scene.Row</div>
+                        </div>
+                    }
+                </div>
+
+                @if (_targetCreationInfo.SelectedPathRow is not null)
+                {
+                    var (path, row) = _targetCreationInfo.SelectedPathRow.Value;
+                    <div class="flex gap-4 mt-4 items-center justify-center mt-4">
+                        <MudButton Variant="Variant.Filled"
+                                   Size="Size.Small"
+                                   Disabled
+                                   >
+                            View Detailed
+                        </MudButton>
+                        
+                        <MudButton Variant="Variant.Filled"
+                                   Size="Size.Small"
+                                   Color="Color.Primary"
+                                   OnClick="@(async _ => await AddTarget(_targetCreationInfo.Coordinates, path, row))"
+                                   >
+                            Add Target
+                        </MudButton>
+                    </div>
+                }
+            </div>
+        }
+    };
+
+}

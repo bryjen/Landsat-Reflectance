@@ -24,7 +24,7 @@ public readonly record struct LatLong
 }
 
 [MessagePackObject]
-public readonly struct Wrs2Scene
+public readonly record struct Wrs2Scene
 {
     [Key(0)]
     public int Path { get; init; }

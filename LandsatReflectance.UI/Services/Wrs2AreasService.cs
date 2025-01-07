@@ -14,7 +14,7 @@ public class Wrs2AreasService
     private readonly ILogger<Wrs2AreasService> _logger;
     private readonly IWebAssemblyHostEnvironment m_environment;
     private readonly IJSRuntime m_jsRuntime;
-
+    
     private SceneManager? _sceneManager = null;
 
     public Wrs2AreasService(ILogger<Wrs2AreasService> logger, IWebAssemblyHostEnvironment environment, IJSRuntime jsRuntime)
@@ -24,7 +24,9 @@ public class Wrs2AreasService
         m_jsRuntime = jsRuntime;
     }
 
-    public async Task<SceneManager> GetSceneManager()
+    public bool IsInit() => _sceneManager is not null;
+
+    public async Task<SceneManager> InitIfNull()
     {
         var stopwatch = new Stopwatch();
         stopwatch.Start();
@@ -49,7 +51,7 @@ public class Wrs2AreasService
 
     public async Task<List<Wrs2Scene>> GetScenes(LatLong latLong)
     {
-        _sceneManager ??= await GetSceneManager();
+        _sceneManager ??= await InitIfNull();
         
         var stopwatch = new Stopwatch();
         stopwatch.Start();
@@ -64,66 +66,4 @@ public class Wrs2AreasService
 
         return scenes;
     }
-
-    /*
-    public bool IsInitialized()
-    {
-        return Wrs2Areas.Count == 0;
-    }
-
-    public async Task InitWrs2Areas()
-    {
-        if (Wrs2Areas.Count == 0)
-        {
-            Wrs2Areas = await FetchWrs2Areas();
-        }
-        
-        if (m_environment.IsDevelopment())
-        {
-            Console.WriteLine($"[Wrs2AreasService] Loaded {Wrs2Areas.Count} areas.");
-        }
-    }
-    
-    private async Task<List<Wrs2Area>> FetchWrs2Areas()
-    {
-        var fileBytes = await m_jsRuntime.InvokeAsync<byte[]>("fetchWrs2AreasGz");
-
-        if (fileBytes == null || fileBytes.Length == 0)
-        {
-            // TODO: Create custom exception & figure out exception handling
-            throw new Exception("Failed to fetch or retrieve the Gzip file.");
-        }
-
-        var stopwatch = new Stopwatch();
-        stopwatch.Start();
-
-        using var inputStream = new MemoryStream(fileBytes);
-        await using var gzipStream = new GZipStream(inputStream, CompressionMode.Decompress);
-        using var decompressedStream = new MemoryStream();
-        await gzipStream.CopyToAsync(decompressedStream);
-        var decompressedBytes = decompressedStream.ToArray();
-        
-        stopwatch.Stop();
-
-        if (m_environment.IsDevelopment())
-        {
-            Console.WriteLine($"[Wrs2AreasService] Loaded wrs2 areas file with #bytes = {decompressedBytes.Length}");
-            Console.WriteLine($"[Wrs2AreasService] Elapsed: {stopwatch.Elapsed:g}");
-        }
-        
-        stopwatch.Restart();
-        
-        using var decompressedByteMemoryStream = new MemoryStream(decompressedBytes);
-        var data = ProtoBuf.Serializer.Deserialize<List<Wrs2Area>>(decompressedByteMemoryStream);
-        
-        stopwatch.Stop();
-        
-        if (m_environment.IsDevelopment())
-        {
-            Console.WriteLine($"[Wrs2AreasService] Deserialized Wrs2 areas with protobuf. Elapsed: {stopwatch.Elapsed:g}");
-        }
-
-        return data;
-    }
-     */
 }
