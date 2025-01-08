@@ -5,6 +5,11 @@
 <PageTitle>Home</PageTitle>
 
 
+<div class="pa-4">
+    @RenderTargetsList()
+</div>
+
+@*
 @if (CurrentUserService.IsAuthenticated)
 {
     <div class="pa-4">
@@ -19,6 +24,7 @@ else
         </div>
     </div>
 }
+*@
 
 @code {
 
@@ -38,7 +44,7 @@ else
             </div>
 
             <div class="flex flex-col gap-3">
-                @if (CurrentTargetsService.IsLoadingTargets)
+                @if (CurrentTargetsService.IsLoadingTargets && CurrentUserService.IsAuthenticated)
                 {
                     <div class="flex flex-col gap-4 justify-center items-center">
                         <p class="font-bold text-lg">Loading your targets ...</p>

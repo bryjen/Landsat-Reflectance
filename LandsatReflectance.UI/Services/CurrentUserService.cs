@@ -146,9 +146,10 @@ public class CurrentUserService
             OnUserLogout.Invoke(this, EventArgs.Empty);
 
             if (_localStorage.ContainKey(AuthTokenLocalStorageKey))
-            {
                 _localStorage.RemoveItem(AuthTokenLocalStorageKey);
-            }
+            
+            if (_localStorage.ContainKey(RefreshToken))
+                _localStorage.RemoveItem(RefreshToken);
         }
     }
 

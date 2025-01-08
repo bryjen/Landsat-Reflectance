@@ -66,7 +66,8 @@ public partial class Home : ComponentBase
         
         CurrentUserService.OnUserLogout += CurrentTargetsService.OnUserLogout;
         
-        CurrentTargetsService.Targets.CollectionChanged += OnDataChanged;
+        CurrentTargetsService.RegisteredTargets.CollectionChanged += OnDataChanged;
+        CurrentTargetsService.UnregisteredTargets.CollectionChanged += OnDataChanged;
         CurrentTargetsService.OnIsLoadingTargetsChanged += OnDataChanged;
     }
 
@@ -81,6 +82,12 @@ public partial class Home : ComponentBase
         {
             ReInitDictionary();
         }
+        // duplicate conditions because I forgot what scenario the above if statement represents, we leave it like that
+        // this is whenever the user isn't authenticated and has unregistered targets
+        else if (isFirstRender && !CurrentUserService.IsAuthenticated)
+        {
+            ReInitDictionary();
+        }
     }
 
     protected void Dispose()
@@ -91,7 +98,8 @@ public partial class Home : ComponentBase
         
         CurrentUserService.OnUserLogout -= CurrentTargetsService.OnUserLogout;
         
-        CurrentTargetsService.Targets.CollectionChanged -= OnDataChanged;
+        CurrentTargetsService.RegisteredTargets.CollectionChanged -= OnDataChanged;
+        CurrentTargetsService.UnregisteredTargets.CollectionChanged -= OnDataChanged;
         CurrentTargetsService.OnIsLoadingTargetsChanged -= OnDataChanged;
         #nullable enable
     }
@@ -99,7 +107,7 @@ public partial class Home : ComponentBase
     private void ReInitDictionary()
     {
         _targetSceneDataMap.Clear();
-        foreach (var target in CurrentTargetsService.Targets)
+        foreach (var target in CurrentTargetsService.AllTargets)
         {
             _targetSceneDataMap.TryAdd(target, new AdditionalTargetInformation());
             
@@ -133,7 +141,7 @@ public partial class Home : ComponentBase
             await InvokeAsync(StateHasChanged);
         };
         
-        var targetKey = $"LocationData:{target.Id.ToString()}";
+        var targetKey = $"{target.Id.ToString()};{FormatCoordinates(target.Latitude, target.Longitude)};LocationData";
         if (SessionStorage.ContainKey(targetKey))
         {
             var locationData = SessionStorage.GetItem<LocationData>(targetKey);
@@ -188,7 +196,7 @@ public partial class Home : ComponentBase
         };
         
         
-        var targetKey = $"SceneData:{target.Id.ToString()}";
+        var targetKey = $"{target.Id.ToString()};{FormatCoordinates(target.Latitude, target.Longitude)};SceneData";
         if (SessionStorage.ContainKey(targetKey))
         {
             var sceneData = SessionStorage.GetItem<SceneData>(targetKey);
@@ -259,11 +267,11 @@ public partial class Home : ComponentBase
                 ? await ApiTargetService.TryDeleteTarget(CurrentUserService.AccessToken, target)
                 : target;
 
-            var wasDeleted = CurrentTargetsService.Targets.Remove(deletedTarget);
+            var wasDeleted = CurrentTargetsService.RegisteredTargets.Remove(deletedTarget);
             if (!Environment.IsProduction())
             {
                 Logger.LogInformation($"Try delete \"{target.Id}\" from memory: {wasDeleted}");
-                Logger.LogInformation($"\"CurrentTargetsService.Targets.Count\": {CurrentTargetsService.Targets.Count}");
+                Logger.LogInformation($"\"CurrentTargetsService.Targets.Count\": {CurrentTargetsService.RegisteredTargets.Count}");
             }
 
             Snackbar.Add("Successfully deleted target", Severity.Success);
@@ -286,4 +294,7 @@ public partial class Home : ComponentBase
             FullPageLoadingOverlay.Hide();
         }
     }
+
+    private static string FormatCoordinates(double latitude, double longitude) =>
+        $"{latitude:F}N+{longitude:F}W";
 }    

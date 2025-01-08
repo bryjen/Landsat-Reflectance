@@ -100,7 +100,7 @@ public partial class TargetDetails : ComponentBase
             return;
         }
         
-        _target = CurrentTargetsService.Targets.FirstOrDefault(target => target.Id == asGuid);
+        _target = CurrentTargetsService.RegisteredTargets.FirstOrDefault(target => target.Id == asGuid);
         if (_target is null)
         {
             _errorMsg = $"Could not find a target with the id \"{asGuid}\".";
