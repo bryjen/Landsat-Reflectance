@@ -24,6 +24,14 @@ open LandsatReflectance.Api.Utils.PasswordHashing
 open LandsatReflectance.Api.Services.DbUserService
 
 
+
+[<CLIMutable>]
+type LoginData =
+    { AccessToken: string
+      RefreshToken: string }
+    
+    
+
 [<AutoOpen>]
 module private Helpers = 
     let getRequiredQueryParameter (ctx: HttpContext) (paramName: string) =
@@ -51,6 +59,19 @@ module private Helpers =
         with
         | ex ->
             Error ex.Message
+            
+(*
+    let tryCreateLoginData (dbUserService: DbUserService) (authTokenOptions: AuthTokenOptions) (user: User) =
+        result {
+            let! refreshGuid = dbUserService.GenerateNewRefreshGuid(user.Email)
+            let accessToken = createAccessToken authTokenOptions.SigningKey user
+            let refreshToken = createRefreshToken authTokenOptions.SigningKey refreshGuid user
+            return { AccessToken = accessToken
+                     RefreshToken = refreshToken }
+        }
+*)
+
+        
         
 [<RequireQualifiedAccess>]
 module UserLoginPost =
@@ -58,11 +79,6 @@ module UserLoginPost =
     type LoginUserRequest =
         { Email: string
           Password: string }
-        
-    [<CLIMutable>]
-    type LoginUserResponse =
-        { AccessToken: string
-          RefreshToken: string }
     
     let rec handler (next: HttpFunc) (ctx: HttpContext) : HttpFuncResult =
         task {
@@ -84,14 +100,14 @@ module UserLoginPost =
             
             return!
                 dbUserService.TryGetUserByCredentials(email, password)
-                |> Result.bind (tryCreateTokenResponse dbUserService authTokenOptions)
+                |> Result.bind (tryCreateLoginData dbUserService authTokenOptions)
                 |> function
                     | Ok loginUserResponse -> 
                         let asApiResponseObj =
                             { RequestGuid = requestId
                               ErrorMessage = None
                               Data = Some loginUserResponse }
-                        (Successful.ok (json<ApiResponse<LoginUserResponse>> asApiResponseObj)) next ctx
+                        (Successful.ok (json<ApiResponse<LoginData>> asApiResponseObj)) next ctx
                     | Error error ->
                         let asApiResponseObj =
                             { RequestGuid = requestId
@@ -100,7 +116,7 @@ module UserLoginPost =
                         (Successful.ok (json<ApiResponse<obj>> asApiResponseObj)) next ctx
         }
         
-    and tryCreateTokenResponse (dbUserService: DbUserService) (authTokenOptions: AuthTokenOptions) (user: User) =
+    and tryCreateLoginData (dbUserService: DbUserService) (authTokenOptions: AuthTokenOptions) (user: User) =
         result {
             let! refreshGuid = dbUserService.GenerateNewRefreshGuid(user.Email)
             let accessToken = createAccessToken authTokenOptions.SigningKey user
@@ -108,7 +124,6 @@ module UserLoginPost =
             return { AccessToken = accessToken
                      RefreshToken = refreshToken }
         }
-        
        
        
 module RefreshTokenLoginPost =
@@ -172,7 +187,7 @@ module UserCreatePost =
           Password: string
           IsEmailEnabled: bool }
     
-    let handler (next: HttpFunc) (ctx: HttpContext) : HttpFuncResult =
+    let rec handler (next: HttpFunc) (ctx: HttpContext) : HttpFuncResult =
         task {
             let requestId: Guid =
                 match ctx.Items.TryGetValue("requestId") with
@@ -189,20 +204,34 @@ module UserCreatePost =
            
             return!
                 dbUserService.TryCreateUser(req.FirstName, req.LastName, req.Email, req.Password, req.IsEmailEnabled)
-                |> Result.map (createAccessToken authTokenOptions.SigningKey)
+                |> Result.bind (tryCreateLoginData dbUserService authTokenOptions)
                 |> function
-                    | Ok loginToken -> 
+                    | Ok loginData -> 
                         let asApiResponseObj =
                             { RequestGuid = requestId
                               ErrorMessage = None
-                              Data = Some loginToken }
-                        (Successful.ok (json<ApiResponse<string>> asApiResponseObj)) next ctx
+                              Data = Some loginData }
+                        (Successful.ok (json<ApiResponse<LoginData>> asApiResponseObj)) next ctx
                     | Error error ->
                         let asApiResponseObj =
                             { RequestGuid = requestId
                               ErrorMessage = Some error
                               Data = None }
                         (Successful.ok (json<ApiResponse<obj>> asApiResponseObj)) next ctx
+        }
+        
+    and tryCreateLoginData (dbUserService: DbUserService) (authTokenOptions: AuthTokenOptions) (user: User) =
+        result {
+            let! refreshGuidOption = dbUserService.TryGetJwtGuid(user.Email)
+            let! refreshGuid =
+                match refreshGuidOption with
+                | Some guid -> Ok guid
+                | None -> dbUserService.GenerateNewRefreshGuid(user.Email)
+            
+            let accessToken = createAccessToken authTokenOptions.SigningKey user
+            let refreshToken = createRefreshToken authTokenOptions.SigningKey refreshGuid user
+            return { AccessToken = accessToken
+                     RefreshToken = refreshToken }
         }
        
         

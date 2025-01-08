@@ -67,8 +67,7 @@ public class ApiUserService
         }
     }
 
-    // TODO: Change API/UI to return 'LoginData'
-    public async Task<string> RegisterAsync(string email, string firstName, string lastName, string password, bool isEmailEnabled)
+    public async Task<LoginData> RegisterAsync(string email, string firstName, string lastName, string password, bool isEmailEnabled)
     {
         var userInfoDict = new Dictionary<string, object>
         {
@@ -85,7 +84,7 @@ public class ApiUserService
             var response = await m_httpClient.PostAsync("user/create", requestBody);
 
             var responseBody = await response.Content.ReadAsStringAsync();
-            var apiResponse = JsonSerializer.Deserialize<ApiResponse<string>>(responseBody, m_jsonSerializerOptions);
+            var apiResponse = JsonSerializer.Deserialize<ApiResponse<LoginData>>(responseBody, m_jsonSerializerOptions);
 
             if (apiResponse is null)
             {

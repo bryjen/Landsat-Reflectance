@@ -142,7 +142,7 @@ module private EndpointOpenApiConfigs =
         
     let POST_userEndpointConfig = 
         OpenApiConfig(
-            responseBodies = [| ResponseBody(typeof<ApiResponse<UserLoginPost.LoginUserResponse>>) |],
+            responseBodies = [| ResponseBody(typeof<ApiResponse<LoginData>>) |],
             requestBody = RequestBody(typeof<UserLoginPost.LoginUserRequest>),
             configureOperation = (fun o ->
                 o.Tags.Clear()
@@ -156,7 +156,7 @@ module private EndpointOpenApiConfigs =
         
     let POST_createUserEndpointConfig = 
         OpenApiConfig(
-            responseBodies = [| ResponseBody(typeof<ApiResponse<string>>) |],
+            responseBodies = [| ResponseBody(typeof<ApiResponse<LoginData>>) |],
             requestBody = RequestBody(typeof<UserCreatePost.CreateUserRequest>),
             configureOperation = (fun o ->
                 o.Tags.Clear()

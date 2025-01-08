@@ -196,25 +196,28 @@ type DbUserService(
             use connection = new MySqlConnection(connectionStringBuilder.ToString())
             connection.Open()
             
-            let queryStringRaw = "INSERT INTO Users (UserGuid, FirstName, LastName, Email, PasswordHash, EmailEnabled, IsAdmin) VALUES (@userGuid, @firstName, @lastName, @email, @passwordHash, @emailEnabled, @isAdmin)"
+            let queryStringRaw = "INSERT INTO Users (UserGuid, FirstName, LastName, Email, PasswordHash, EmailEnabled, IsAdmin, RefreshGuid) VALUES (@userGuid, @firstName, @lastName, @email, @passwordHash, @isEmailEnabled, @isAdmin, @refreshGuid)"
             
+            let refreshGuid = Guid.NewGuid()
             use queryCommand = new MySqlCommand(queryStringRaw, connection)
             queryCommand.Parameters.AddWithValue("@userGuid", newUser.Id) |> ignore
             queryCommand.Parameters.AddWithValue("@firstName", newUser.FirstName) |> ignore
             queryCommand.Parameters.AddWithValue("@lastName", newUser.LastName) |> ignore
             queryCommand.Parameters.AddWithValue("@email", newUser.Email) |> ignore
             queryCommand.Parameters.AddWithValue("@passwordHash", newUser.PasswordHash) |> ignore
-            queryCommand.Parameters.AddWithValue("@emailEnabled", newUser.IsEmailEnabled) |> ignore
+            queryCommand.Parameters.AddWithValue("@isEmailEnabled", newUser.IsEmailEnabled) |> ignore
             queryCommand.Parameters.AddWithValue("@isAdmin", newUser.IsAdmin) |> ignore
+            queryCommand.Parameters.AddWithValue("@refreshGuid", refreshGuid) |> ignore
             
             let queryStringToLog = queryStringRaw
-                                       .Replace("@userGuid", $"\"{newUser.Id}\"")
-                                       .Replace("@firstName", $"\"{newUser.FirstName}\"")
-                                       .Replace("@lastName", $"\"{newUser.LastName}\"")
-                                       .Replace("@email", $"\"{newUser.Email}\"")
-                                       .Replace("@passwordHash", $"\"{newUser.PasswordHash}\"")
+                                       .Replace("@userGuid", $"'{newUser.Id}'")
+                                       .Replace("@firstName", $"'{newUser.FirstName}'")
+                                       .Replace("@lastName", $"'{newUser.LastName};")
+                                       .Replace("@email", $"'{newUser.Email}'")
+                                       .Replace("@passwordHash", $"'{newUser.PasswordHash}'")
                                        .Replace("@emailEnabled", if newUser.IsEmailEnabled then "1" else "0")
                                        .Replace("@isAdmin", if newUser.IsAdmin then "1" else "0")
+                                       .Replace("@refreshGuid", $"'{refreshGuid.ToString()}'")
             logger.LogInformation(queryStringToLog)
             
             let _ = queryCommand.ExecuteNonQuery()  // in case of a duplicate, will throw error instead

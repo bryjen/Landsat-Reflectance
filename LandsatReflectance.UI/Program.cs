@@ -49,8 +49,9 @@ builder.Services.AddSingleton(_ =>
 
 builder.Services.AddScoped(sp =>
 {
-    // const string proxyServerBaseUri = "https://fs-landsat-api.onrender.com/";
-    const string proxyServerBaseUri = "https://localhost:7259/";
+    const string proxyServerBaseUri = "https://fs-landsat-api.onrender.com/";
+    // const string proxyServerBaseUri = "https://localhost:7259/";
+    
     var httpClient = new HttpClient();
     httpClient.BaseAddress = new Uri(proxyServerBaseUri);
 
