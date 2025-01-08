@@ -31,13 +31,14 @@ public partial class MainLayout : LayoutComponentBase
     
     
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         if (!CurrentUserService.IsAuthenticated)
         {
             try
             { 
-                CurrentUserService.TryInitFromLocalStorage();
+                await CurrentUserService.TryInitFromLocalValues();
+                StateHasChanged();
             }
             catch (AuthException authException)
             {

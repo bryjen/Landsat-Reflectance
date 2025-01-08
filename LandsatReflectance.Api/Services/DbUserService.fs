@@ -11,6 +11,7 @@ open MySql.Data.MySqlClient
 open LandsatReflectance.Api.Options
 open LandsatReflectance.Api.Models.User
 open LandsatReflectance.Api.Utils.PasswordHashing
+open Polly
 
 
 
@@ -50,9 +51,32 @@ type DbUserService(
     logger: ILogger<DbUserService>,
     dbOptions: IOptions<DbOptions>) =
     
+    let retryPolicy = 
+        let policyBuilder = Policy.Handle<MySqlException>()
+        let retryPolicy = policyBuilder.WaitAndRetry(
+            [
+                TimeSpan.FromSeconds(1.0)
+                TimeSpan.FromSeconds(3.0)
+                TimeSpan.FromSeconds(5.0)
+            ])
+        retryPolicy
+    
+    let connectionStringBuilder =
+        let csb = MySqlConnectionStringBuilder(dbOptions.Value.DbConnectionString)
+        csb.Pooling <- true
+        csb.MinimumPoolSize <- uint 0
+        csb.MaximumPoolSize <- uint 10
+        
+        csb.SslMode <- MySqlSslMode.Disabled
+        
+        csb.ConnectionTimeout <- uint 10
+        
+        csb
+    
+    
     member this.TryGetJwtGuid(userEmail: string) : Result<Guid option, string> =
         try
-            use connection = new MySqlConnection(dbOptions.Value.DbConnectionString)
+            use connection = new MySqlConnection(connectionStringBuilder.ToString())
             connection.Open()
             
             let queryStringRaw = "SELECT RefreshGuid FROM Users WHERE Email = @Email"
@@ -79,7 +103,7 @@ type DbUserService(
         
     member this.GenerateNewRefreshGuid(userEmail: string) : Result<Guid, string> =
         try
-            use connection = new MySqlConnection(dbOptions.Value.DbConnectionString)
+            use connection = new MySqlConnection(connectionStringBuilder.ToString())
             connection.Open()
             
             let queryStringRaw = "UPDATE Users SET RefreshGuid = @RefreshGuid WHERE Email = @Email"
@@ -109,7 +133,7 @@ type DbUserService(
     // Matches without password, only use in handlers/endpoints where the user is already authenticated.
     member internal this.TryGetUserByEmail(email: string) = 
         try
-            use connection = new MySqlConnection(dbOptions.Value.DbConnectionString)
+            use connection = new MySqlConnection(connectionStringBuilder.ToString())
             connection.Open()
             
             let queryStringRaw = "SELECT * FROM Users as u WHERE u.Email = @email"
@@ -132,7 +156,7 @@ type DbUserService(
     
     member this.TryGetUserByCredentials(email: string, password: string) =
         try
-            use connection = new MySqlConnection(dbOptions.Value.DbConnectionString)
+            use connection = new MySqlConnection(connectionStringBuilder.ToString())
             connection.Open()
             
             let queryStringRaw = "SELECT * FROM Users as u WHERE u.Email = @email"
@@ -169,7 +193,7 @@ type DbUserService(
               IsAdmin = false }
         
         try
-            use connection = new MySqlConnection(dbOptions.Value.DbConnectionString)
+            use connection = new MySqlConnection(connectionStringBuilder.ToString())
             connection.Open()
             
             let queryStringRaw = "INSERT INTO Users (UserGuid, FirstName, LastName, Email, PasswordHash, EmailEnabled, IsAdmin) VALUES (@userGuid, @firstName, @lastName, @email, @passwordHash, @emailEnabled, @isAdmin)"
@@ -202,7 +226,7 @@ type DbUserService(
         
     member this.TryDeleteUser(email: string) =
         try
-            use connection = new MySqlConnection(dbOptions.Value.DbConnectionString)
+            use connection = new MySqlConnection(connectionStringBuilder.ToString())
             connection.Open()
             
             let queryStringRaw = "DELETE FROM Users WHERE Email = @Email"
@@ -228,7 +252,7 @@ type DbUserService(
         // Helper method
         let editUserInfoInDb user =
             try
-                use connection = new MySqlConnection(dbOptions.Value.DbConnectionString)
+                use connection = new MySqlConnection(connectionStringBuilder.ToString())
                 connection.Open()
                 
                 let queryStringRaw =

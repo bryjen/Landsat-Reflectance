@@ -124,7 +124,7 @@ public partial class Map : ComponentBase
         // Logic to load targets based on cookie auth
         if (isFirstRender && CurrentUserService.IsAuthenticated && !CurrentTargetsService.HasLoadedUserTargets)
         {
-            await CurrentTargetsService.LoadUserTargetsCore(CurrentUserService.Token);
+            await CurrentTargetsService.LoadUserTargetsCore(CurrentUserService.AccessToken);
             await RenderTargetsAsMarkersOnMap();
         }
     }
@@ -303,7 +303,7 @@ public partial class Map : ComponentBase
             FullPageLoadingOverlay.SetOverlayMessage("Adding target ...");
             FullPageLoadingOverlay.Show();
 
-            var target = await ApiTargetService.TryAddTarget(CurrentUserService.Token, requestBodyDict);
+            var target = await ApiTargetService.TryAddTarget(CurrentUserService.AccessToken, requestBodyDict);
             
             FullPageLoadingOverlay.Hide();
             FullPageLoadingOverlay.ClearOverlayMessage();

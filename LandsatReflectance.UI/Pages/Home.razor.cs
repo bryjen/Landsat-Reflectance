@@ -57,7 +57,7 @@ public partial class Home : ComponentBase
         // Logic to load targets based on cookie auth
         if (isFirstRender && CurrentUserService.IsAuthenticated && !CurrentTargetsService.HasLoadedUserTargets)
         {
-            await CurrentTargetsService.LoadUserTargetsCore(CurrentUserService.Token);
+            await CurrentTargetsService.LoadUserTargetsCore(CurrentUserService.AccessToken);
         }
         else if (isFirstRender && CurrentUserService.IsAuthenticated && CurrentTargetsService.HasLoadedUserTargets)
         {
@@ -104,7 +104,7 @@ public partial class Home : ComponentBase
         try
         {
             var sceneDataArr = await ApiTargetService.TryGetSceneData(
-                CurrentUserService.Token, 
+                CurrentUserService.AccessToken, 
                 target.Path,
                 target.Row, 
                 2);
@@ -149,7 +149,7 @@ public partial class Home : ComponentBase
             FullPageLoadingOverlay.Show();
 
             var deletedTarget = CurrentUserService.IsAuthenticated 
-                ? await ApiTargetService.TryDeleteTarget(CurrentUserService.Token, target)
+                ? await ApiTargetService.TryDeleteTarget(CurrentUserService.AccessToken, target)
                 : target;
 
             var wasDeleted = CurrentTargetsService.Targets.Remove(deletedTarget);
