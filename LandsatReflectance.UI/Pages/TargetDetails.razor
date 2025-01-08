@@ -171,7 +171,7 @@
                                 .AddClass("items-center")
                                 .AddClass("font-bold")
                                 .AddClass("underline")
-                                .AddClass("text-sky-400", _location.HasValue)
+                                .AddClass("text-sky-400", _locationData is not null)
                                 .Build();
                         }
 
@@ -179,11 +179,11 @@
                             Location:
                         </a>
                         <div class="flex items-center gap-2">
-                            @if (_location.HasValue)
+                            @if (_locationData is not null)
                             {
                                 <MudIcon Size="@Size.Small" Icon="@Icons.Material.Filled.LocationOn" />
                                 <p class="flex items-center text-xs">
-                                    @($"{_location.Value.City}, {_location.Value.Country}")
+                                    @($"{_locationData.City}, {_locationData.Country}")
                                 </p>
                             }
                             else

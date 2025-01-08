@@ -45,9 +45,9 @@ public class CurrentTargetsService
 
     internal void SaveTargetsCreatedOffline(object? sender, AuthenticatedEventArgs authenticatedEventArgs)
     {
+        // TODO
     }
 
-    
     internal async void LoadUserTargets(object? sender, AuthenticatedEventArgs authenticatedEventArgs)
     {
         try

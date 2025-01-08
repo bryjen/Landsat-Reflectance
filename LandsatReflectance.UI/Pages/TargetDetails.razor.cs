@@ -42,7 +42,7 @@ public partial class TargetDetails : ComponentBase
 
     private int _currentSceneIndex = 0;
     private List<SceneData> _sceneDatas = new();
-    private (string City, string Country)? _location = null;
+        private LocationData? _locationData = null;
 
     // Zoom style value in %
     private double _imageZoom = 33.3;
@@ -134,7 +134,7 @@ public partial class TargetDetails : ComponentBase
                 StateHasChanged();
                 
                 var asLatLong = new LatLong((float)_target.Latitude, (float)_target.Longitude);
-                _location = await GeocodingService.GetNearestCity(asLatLong);
+                _locationData = await GeocodingService.GetNearestCity(asLatLong);
                 
                 _isLoadingLocation = false;
                 StateHasChanged();
