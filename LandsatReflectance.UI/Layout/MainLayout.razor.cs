@@ -59,20 +59,7 @@ public partial class MainLayout : LayoutComponentBase
         }
     }
 
-    protected override async Task OnAfterRenderAsync(bool isFirstRender)
-    {
-        // await Wrs2AreasService.GetScenes(new LatLong(45.50371351218764f, -73.56731958677688f));
-        
-        /*
-        if (Wrs2AreasService.IsInitialized())
-        {
-            var workFunc = async () => await Wrs2AreasService.InitWrs2Areas();
-            var onWorkFinishedCallback = () => Task.CompletedTask;
-            await m_fullPageLoadingOverlay.ExecuteWithOverlay("Loading landsat area data.\nPlease wait ...", workFunc, onWorkFinishedCallback);
-        }
-         */
-    }
-
+    
     public string DarkLightModeButtonIcon =>
         UiService.IsDarkMode switch
         {

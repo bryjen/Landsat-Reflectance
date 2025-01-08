@@ -50,6 +50,62 @@ type DbUserService(
     logger: ILogger<DbUserService>,
     dbOptions: IOptions<DbOptions>) =
     
+    member this.TryGetJwtGuid(userEmail: string) : Result<Guid option, string> =
+        try
+            use connection = new MySqlConnection(dbOptions.Value.DbConnectionString)
+            connection.Open()
+            
+            let queryStringRaw = "SELECT RefreshGuid FROM Users WHERE Email = @Email"
+            
+            use queryCommand = new MySqlCommand(queryStringRaw, connection)
+            queryCommand.Parameters.AddWithValue("@Email", userEmail) |> ignore
+            
+            let queryStringToLog = queryStringRaw.Replace("@Email", $"'{userEmail}'")
+            logger.LogInformation(queryStringToLog)
+            
+            use reader = queryCommand.ExecuteReader()
+            
+            match reader.Read() with
+            | true ->
+                match Guid.TryParse(reader.GetString(0)) with
+                | true, guid -> Ok (Some guid)
+                | false, _ -> Ok None 
+            | false ->
+                Ok None
+        with
+        | ex ->
+            Error ex.Message
+        
+        
+    member this.GenerateNewRefreshGuid(userEmail: string) : Result<Guid, string> =
+        try
+            use connection = new MySqlConnection(dbOptions.Value.DbConnectionString)
+            connection.Open()
+            
+            let queryStringRaw = "UPDATE Users SET RefreshGuid = @RefreshGuid WHERE Email = @Email"
+            
+            let refreshGuid = Guid.NewGuid()
+            use command = new MySqlCommand(queryStringRaw, connection)
+            command.Parameters.AddWithValue("@RefreshGuid", refreshGuid) |> ignore
+            command.Parameters.AddWithValue("@Email", userEmail) |> ignore
+            
+            let queryStringToLog =
+                queryStringRaw
+                    .Replace("@RefreshGuid", $"'{refreshGuid}'")
+                    .Replace("@Email", $"'{userEmail}'")
+            logger.LogInformation(queryStringToLog)
+            
+            let rowsAffected = command.ExecuteNonQuery()
+            match rowsAffected with
+            | i when i >= 0 ->
+                Ok refreshGuid
+            | _ ->
+                Error "No data changed."
+        with
+        | ex ->
+            Error ex.Message
+    
+    
     // Matches without password, only use in handlers/endpoints where the user is already authenticated.
     member internal this.TryGetUserByEmail(email: string) = 
         try

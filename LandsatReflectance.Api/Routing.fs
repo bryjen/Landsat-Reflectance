@@ -1,5 +1,6 @@
 ﻿module LandsatReflectance.Api.Routing
 
+open LandsatReflectance.Api.Handlers.UserHandler.RefreshTokenLoginPost
 open Microsoft.OpenApi.Models
 
 open Giraffe.EndpointRouting
@@ -34,7 +35,7 @@ module private EndpointOpenApiConfigs =
                 o.Tags.Add(tag)
                 
                 o.OperationId <- "PATCH_target"
-                o.Summary <- "Attempts to edit a user's target"
+                o.Summary <- "Attempts to edit a user's target.b"
                 
                 let securityRequirement = OpenApiSecurityRequirement()
                 securityRequirement.Add(
@@ -67,7 +68,7 @@ module private EndpointOpenApiConfigs =
                 o.Tags.Add(tag)
                 
                 o.OperationId <- "DELETE_target"
-                o.Summary <- "Attempts to delete a user's target"
+                o.Summary <- "Attempts to delete a user's target."
                 
                 
                 let securityRequirement = OpenApiSecurityRequirement()
@@ -141,7 +142,7 @@ module private EndpointOpenApiConfigs =
         
     let POST_userEndpointConfig = 
         OpenApiConfig(
-            responseBodies = [| ResponseBody(typeof<ApiResponse<string>>) |],
+            responseBodies = [| ResponseBody(typeof<ApiResponse<UserLoginPost.LoginUserResponse>>) |],
             requestBody = RequestBody(typeof<UserLoginPost.LoginUserRequest>),
             configureOperation = (fun o ->
                 o.Tags.Clear()
@@ -150,7 +151,7 @@ module private EndpointOpenApiConfigs =
                 o.Tags.Add(tag)
                 
                 o.OperationId <- "POST_user"
-                o.Summary <- "Attempts to login a user, given credentials"
+                o.Summary <- "Attempts to login a user, given credentials."
                 o))
         
     let POST_createUserEndpointConfig = 
@@ -164,7 +165,7 @@ module private EndpointOpenApiConfigs =
                 o.Tags.Add(tag)
                 
                 o.OperationId <- "POST_createUser"
-                o.Summary <- "Attempts to create a user"
+                o.Summary <- "Attempts to create a user."
                 o))
         
         
@@ -190,7 +191,7 @@ module private EndpointOpenApiConfigs =
                 o.Security <- [| securityRequirement |]
                 
                 o.OperationId <- "GET_targets"
-                o.Summary <- "Gets all emails bound to a specified user"
+                o.Summary <- "Gets all emails bound to a specified user."
                 o))
     
     let POST_userTargetsEndpointConfig = 
@@ -216,7 +217,7 @@ module private EndpointOpenApiConfigs =
                 o.Security <- [| securityRequirement |]
                 
                 o.OperationId <- "POST_targets"
-                o.Summary <- "Attempts to create a target"
+                o.Summary <- "Attempts to create a target."
                 o))
         
     let DELETE_userEndpointConfig = 
@@ -268,8 +269,36 @@ module private EndpointOpenApiConfigs =
                 o.Security <- [| securityRequirement |]
                 
                 o.OperationId <- "PATCH_user"
-                o.Summary <- "Attempts to edit a user"
+                o.Summary <- "Attempts to edit a user."
                 o))
+        
+    let POST_userRefreshTokenLoginEndpointConfig = 
+        OpenApiConfig(
+            responseBodies = [| ResponseBody(typeof<ApiResponse<string>>) |],
+            requestBody = RequestBody(typeof<RefreshTokenLoginRequest>),
+            configureOperation = (fun o ->
+                o.Tags.Clear()
+                let tag = OpenApiTag()
+                tag.Name <- "user"
+                o.Tags.Add(tag)
+                
+                let securityRequirement = OpenApiSecurityRequirement()
+                securityRequirement.Add(
+                    OpenApiSecurityScheme(
+                        Reference = OpenApiReference(
+                            Type = ReferenceType.SecurityScheme,
+                            Id = "Bearer"
+                        )
+                    ),
+                    [|  |] 
+                )
+                o.Security <- [| securityRequirement |]
+                
+                o.OperationId <- "POST_user_refresh_token_login"
+                o.Summary <- "Attempts generate an access token given a refresh tokenn."
+                o))
+        
+        
         
 let notLoggedIn =
     RequestErrors.UNAUTHORIZED
@@ -295,6 +324,9 @@ let endpoints: Routers.Endpoint list = [
         
         Routers.route "/user/create" (POST >=> requestIdMiddleware >=> UserCreatePost.handler)
         |> addOpenApi EndpointOpenApiConfigs.POST_createUserEndpointConfig
+        
+        Routers.route "/user/refresh-token-login" (POST >=> requestIdMiddleware >=> RefreshTokenLoginPost.handler)
+        |> addOpenApi EndpointOpenApiConfigs.POST_userRefreshTokenLoginEndpointConfig
         
         Routers.route "/user/targets" (POST >=> mustBeLoggedIn >=> requestIdMiddleware >=> UserTargetsPost.handler)
         |> addOpenApi EndpointOpenApiConfigs.POST_userTargetsEndpointConfig

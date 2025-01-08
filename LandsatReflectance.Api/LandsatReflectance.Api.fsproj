@@ -11,12 +11,13 @@
         <Compile Include="Errors.fs" />
         <Compile Include="Options.fs" />
         <Compile Include="Extensions.fs" />
-        <Compile Include="Utils\UsgsHttpClient.fs" />
-        <Compile Include="Utils\AppJsonSerializer.fs" />
-        <Compile Include="Utils\PasswordHashing.fs" />
         <Compile Include="Models\Usgs\Scene.fs" />
         <Compile Include="Models\ApiResponse.fs" />
         <Compile Include="Models\User.fs" />
+        <Compile Include="Utils\UsgsHttpClient.fs" />
+        <Compile Include="Utils\AppJsonSerializer.fs" />
+        <Compile Include="Utils\PasswordHashing.fs" />
+        <Compile Include="Utils\JwtTokens.fs" />
         <Compile Include="Json\Usgs\LoginToken.fs" />
         <Compile Include="Json\Usgs\SceneSearch.fs" />
         <Compile Include="Services\UsgsTokenService.fs" />
