@@ -90,7 +90,7 @@ public partial class Login : ComponentBase
         try
         {
             var authToken = await ApiUserService.LoginAsync(m_email, m_password);
-            CurrentUserService.TryInitFromAuthToken(authToken);
+            CurrentUserService.TryInit(authToken);
 
             // logic for switching to home page
             m_isProcessing = false;

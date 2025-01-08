@@ -12,7 +12,8 @@ CREATE TABLE Users (
     Email VARCHAR(255) UNIQUE NOT NULL,
     PasswordHash VARCHAR(255),
     EmailEnabled TINYINT(1) NOT NULL DEFAULT '1',
-    IsAdmin TINYINT(1) NOT NULL DEFAULT '0'
+    IsAdmin TINYINT(1) NOT NULL DEFAULT '0',
+    RefreshGuid TEXT NOT NULL
 );
 
 CREATE TABLE Targets (

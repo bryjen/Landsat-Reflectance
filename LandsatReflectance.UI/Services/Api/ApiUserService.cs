@@ -28,7 +28,7 @@ public class ApiUserService
         m_httpClient = httpClient;
     }
 
-    public async Task<string> LoginAsync(string email, string password)
+    public async Task<LoginData> LoginAsync(string email, string password)
     {
         var credentialsDict = new Dictionary<string, string>
         {
@@ -42,7 +42,7 @@ public class ApiUserService
             var response = await m_httpClient.PostAsync("user", requestBody);
 
             var responseBody = await response.Content.ReadAsStringAsync();
-            var apiResponse = JsonSerializer.Deserialize<ApiResponse<string>>(responseBody, m_jsonSerializerOptions);
+            var apiResponse = JsonSerializer.Deserialize<ApiResponse<LoginData>>(responseBody, m_jsonSerializerOptions);
 
             if (apiResponse is null)
             {
@@ -67,7 +67,7 @@ public class ApiUserService
         }
     }
 
-    public async Task<string> RegisterAsync(string email, string firstName, string lastName, string password, bool isEmailEnabled)
+    public async Task<LoginData> RegisterAsync(string email, string firstName, string lastName, string password, bool isEmailEnabled)
     {
         var userInfoDict = new Dictionary<string, object>
         {
@@ -83,6 +83,43 @@ public class ApiUserService
             using var requestBody = new StringContent(JsonSerializer.Serialize(userInfoDict, m_jsonSerializerOptions), Encoding.UTF8, "application/json");
             var response = await m_httpClient.PostAsync("user/create", requestBody);
 
+            var responseBody = await response.Content.ReadAsStringAsync();
+            var apiResponse = JsonSerializer.Deserialize<ApiResponse<LoginData>>(responseBody, m_jsonSerializerOptions);
+
+            if (apiResponse is null)
+            {
+                throw new AuthException("Response from the server is null");
+            }
+
+            if (apiResponse.ErrorMessage is not null)
+            {
+                throw new AuthException(apiResponse.ErrorMessage);
+            }
+
+            return apiResponse.Data;
+        }
+        catch (AuthException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            m_logger.LogError(exception.ToString());
+            throw;
+        }
+    }
+
+    public async Task<string> RefreshAccessToken(string refreshToken)
+    {
+        var requestBodyAsDict = new Dictionary<string, string>
+        {
+            { "refreshToken", refreshToken }
+        };
+
+        try
+        {
+            using var requestBody = new StringContent(JsonSerializer.Serialize(requestBodyAsDict, m_jsonSerializerOptions), Encoding.UTF8,"application/json");
+            var response = await m_httpClient.PostAsync("user/refresh-token-login", requestBody);
             var responseBody = await response.Content.ReadAsStringAsync();
             var apiResponse = JsonSerializer.Deserialize<ApiResponse<string>>(responseBody, m_jsonSerializerOptions);
 

@@ -61,7 +61,7 @@ public partial class TargetDetails : ComponentBase
         // Logic to load targets based on cookie auth
         if (isFirstRender && CurrentUserService.IsAuthenticated && !CurrentTargetsService.HasLoadedUserTargets)
         {
-            await CurrentTargetsService.LoadUserTargetsCore(CurrentUserService.Token);
+            await CurrentTargetsService.LoadUserTargetsCore(CurrentUserService.AccessToken);
         }
 
         if (isFirstRender)
@@ -120,7 +120,7 @@ public partial class TargetDetails : ComponentBase
             return;
         }
 
-        var sceneDatas = await ApiTargetService.TryGetSceneData(CurrentUserService.Token, _target.Path, _target.Row, 10);
+        var sceneDatas = await ApiTargetService.TryGetSceneData(CurrentUserService.AccessToken, _target.Path, _target.Row, 10);
         _sceneDatas = sceneDatas.OrderByDescending(sceneData => sceneData.PublishDate).ToList();
     }
 

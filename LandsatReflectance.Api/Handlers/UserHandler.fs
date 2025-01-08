@@ -2,15 +2,13 @@
 
 open System
 open System.IO
-open System.IdentityModel.Tokens.Jwt
-open System.Security.Claims
-open System.Text
 open System.Text.Json
+open System.Security.Claims
 
+open LandsatReflectance.Api.Services
 open Microsoft.FSharp.Core
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.Options
-open Microsoft.IdentityModel.Tokens
 open Microsoft.AspNetCore.Http.Json
 open Microsoft.Extensions.DependencyInjection
 
@@ -18,12 +16,21 @@ open Giraffe
 
 open FsToolkit.ErrorHandling
 
+open FsLandsatApi.Utils.JwtTokens
 open LandsatReflectance.Api.Options
 open LandsatReflectance.Api.Models.User
 open LandsatReflectance.Api.Models.ApiResponse
 open LandsatReflectance.Api.Utils.PasswordHashing
 open LandsatReflectance.Api.Services.DbUserService
 
+
+
+[<CLIMutable>]
+type LoginData =
+    { AccessToken: string
+      RefreshToken: string }
+    
+    
 
 [<AutoOpen>]
 module private Helpers = 
@@ -52,35 +59,18 @@ module private Helpers =
         with
         | ex ->
             Error ex.Message
-        
-        
-[<AutoOpen>]
-module private Tokens =
-    let createJwtToken (secret: string) (user: User) =
-        let signingKey = SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
-        let credentials = SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256)
-        
-        let mutable claims = [
-            Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-            Claim(JwtRegisteredClaimNames.GivenName, user.FirstName)
-            Claim(JwtRegisteredClaimNames.FamilyName, user.LastName)
-            Claim(JwtRegisteredClaimNames.Name, $"{user.FirstName} {user.LastName}")
-            Claim(JwtRegisteredClaimNames.Email, user.Email)
-        ]
-        
-        if user.IsAdmin then
-            claims <- Claim("role", "Admin") :: claims
-        
-        // TODO: Properly setup issuer/audience before publishing
-        let token = JwtSecurityToken(
-            issuer = "FlatEarthers",
-            audience = "FlatEarthers",
-            claims = claims,
-            notBefore = DateTime.UtcNow,
-            expires = DateTime.UtcNow.AddHours(1),
-            signingCredentials = credentials)
-        
-        JwtSecurityTokenHandler().WriteToken(token)
+            
+(*
+    let tryCreateLoginData (dbUserService: DbUserService) (authTokenOptions: AuthTokenOptions) (user: User) =
+        result {
+            let! refreshGuid = dbUserService.GenerateNewRefreshGuid(user.Email)
+            let accessToken = createAccessToken authTokenOptions.SigningKey user
+            let refreshToken = createRefreshToken authTokenOptions.SigningKey refreshGuid user
+            return { AccessToken = accessToken
+                     RefreshToken = refreshToken }
+        }
+*)
+
         
         
 [<RequireQualifiedAccess>]
@@ -90,7 +80,7 @@ module UserLoginPost =
         { Email: string
           Password: string }
     
-    let handler (next: HttpFunc) (ctx: HttpContext) : HttpFuncResult =
+    let rec handler (next: HttpFunc) (ctx: HttpContext) : HttpFuncResult =
         task {
             let requestId: Guid =
                 match ctx.Items.TryGetValue("requestId") with
@@ -110,13 +100,63 @@ module UserLoginPost =
             
             return!
                 dbUserService.TryGetUserByCredentials(email, password)
-                |> Result.map (createJwtToken authTokenOptions.SigningKey)
+                |> Result.bind (tryCreateLoginData dbUserService authTokenOptions)
                 |> function
-                    | Ok loginToken -> 
+                    | Ok loginUserResponse -> 
                         let asApiResponseObj =
                             { RequestGuid = requestId
                               ErrorMessage = None
-                              Data = Some loginToken }
+                              Data = Some loginUserResponse }
+                        (Successful.ok (json<ApiResponse<LoginData>> asApiResponseObj)) next ctx
+                    | Error error ->
+                        let asApiResponseObj =
+                            { RequestGuid = requestId
+                              ErrorMessage = Some error
+                              Data = None }
+                        (Successful.ok (json<ApiResponse<obj>> asApiResponseObj)) next ctx
+        }
+        
+    and tryCreateLoginData (dbUserService: DbUserService) (authTokenOptions: AuthTokenOptions) (user: User) =
+        result {
+            let! refreshGuid = dbUserService.GenerateNewRefreshGuid(user.Email)
+            let accessToken = createAccessToken authTokenOptions.SigningKey user
+            let refreshToken = createRefreshToken authTokenOptions.SigningKey refreshGuid user
+            return { AccessToken = accessToken
+                     RefreshToken = refreshToken }
+        }
+       
+       
+module RefreshTokenLoginPost =
+    [<CLIMutable>]
+    type RefreshTokenLoginRequest =
+        { RefreshToken: string }
+        
+    let rec handler (next: HttpFunc) (ctx: HttpContext) : HttpFuncResult =
+        task {
+            let requestId: Guid =
+                match ctx.Items.TryGetValue("requestId") with
+                | true, value -> value :?> Guid
+                | false, _ -> Guid.Empty
+            
+            let dbUserService = ctx.RequestServices.GetRequiredService<DbUserService>()
+            let authTokenOptions = ctx.RequestServices.GetRequiredService<IOptions<AuthTokenOptions>>().Value
+            let jsonSerializerOptions = ctx.RequestServices.GetRequiredService<IOptions<JsonOptions>>().Value.SerializerOptions
+            
+            use requestBodyReader = new StreamReader(ctx.Request.Body)
+            let! requestBody = requestBodyReader.ReadToEndAsync()
+            let req = JsonSerializer.Deserialize<RefreshTokenLoginRequest>(requestBody, jsonSerializerOptions)
+            
+            return!
+                tryParseRefreshToken authTokenOptions.SigningKey req.RefreshToken
+                |> Result.bind (validateRefreshGuidWithDbValue dbUserService)
+                |> Result.bind dbUserService.TryGetUserByEmail
+                |> Result.map (createAccessToken authTokenOptions.SigningKey)
+                |> function
+                    | Ok accessToken ->
+                        let asApiResponseObj =
+                            { RequestGuid = requestId
+                              ErrorMessage = None
+                              Data = Some accessToken }
                         (Successful.ok (json<ApiResponse<string>> asApiResponseObj)) next ctx
                     | Error error ->
                         let asApiResponseObj =
@@ -125,7 +165,17 @@ module UserLoginPost =
                               Data = None }
                         (Successful.ok (json<ApiResponse<obj>> asApiResponseObj)) next ctx
         }
-       
+        
+    and validateRefreshGuidWithDbValue (dbUserService: DbUserService) (refreshTokenParseResults: RefreshTokenParseResults) =
+        match dbUserService.TryGetJwtGuid(refreshTokenParseResults.Email) with
+        | Ok guidOption ->
+            match guidOption with
+            | Some guid when guid = refreshTokenParseResults.RefreshGuid -> Ok refreshTokenParseResults.Email
+            | Some _ -> Error "Refresh token id does not match the existing one."
+            | None -> Error "No refresh token id present."
+        | Error error ->
+            Error error
+        
        
 [<RequireQualifiedAccess>]
 module UserCreatePost =
@@ -137,7 +187,7 @@ module UserCreatePost =
           Password: string
           IsEmailEnabled: bool }
     
-    let handler (next: HttpFunc) (ctx: HttpContext) : HttpFuncResult =
+    let rec handler (next: HttpFunc) (ctx: HttpContext) : HttpFuncResult =
         task {
             let requestId: Guid =
                 match ctx.Items.TryGetValue("requestId") with
@@ -154,20 +204,34 @@ module UserCreatePost =
            
             return!
                 dbUserService.TryCreateUser(req.FirstName, req.LastName, req.Email, req.Password, req.IsEmailEnabled)
-                |> Result.map (createJwtToken authTokenOptions.SigningKey)
+                |> Result.bind (tryCreateLoginData dbUserService authTokenOptions)
                 |> function
-                    | Ok loginToken -> 
+                    | Ok loginData -> 
                         let asApiResponseObj =
                             { RequestGuid = requestId
                               ErrorMessage = None
-                              Data = Some loginToken }
-                        (Successful.ok (json<ApiResponse<string>> asApiResponseObj)) next ctx
+                              Data = Some loginData }
+                        (Successful.ok (json<ApiResponse<LoginData>> asApiResponseObj)) next ctx
                     | Error error ->
                         let asApiResponseObj =
                             { RequestGuid = requestId
                               ErrorMessage = Some error
                               Data = None }
                         (Successful.ok (json<ApiResponse<obj>> asApiResponseObj)) next ctx
+        }
+        
+    and tryCreateLoginData (dbUserService: DbUserService) (authTokenOptions: AuthTokenOptions) (user: User) =
+        result {
+            let! refreshGuidOption = dbUserService.TryGetJwtGuid(user.Email)
+            let! refreshGuid =
+                match refreshGuidOption with
+                | Some guid -> Ok guid
+                | None -> dbUserService.GenerateNewRefreshGuid(user.Email)
+            
+            let accessToken = createAccessToken authTokenOptions.SigningKey user
+            let refreshToken = createRefreshToken authTokenOptions.SigningKey refreshGuid user
+            return { AccessToken = accessToken
+                     RefreshToken = refreshToken }
         }
        
         
@@ -222,7 +286,7 @@ module UserPatch =
             
             let transformUser = transformUserWithPatch patchUserReq
             let tryEditUser userEmail = dbUserService.TryEditUser(transformUser, userEmail)
-            let createJwtToken = createJwtToken authTokenOptions.SigningKey
+            let createJwtToken = createAccessToken authTokenOptions.SigningKey
             
             return!
                 tryGetUserEmail ctx

@@ -144,8 +144,8 @@ public partial class Registration : ComponentBase
 
         try
         {
-            var authToken = await ApiUserService.RegisterAsync(_userModel.Email, _userModel.FirstName, _userModel.LastName, _userModel.Password, true);
-            CurrentUserService.TryInitFromAuthToken(authToken);
+            var loginData = await ApiUserService.RegisterAsync(_userModel.Email, _userModel.FirstName, _userModel.LastName, _userModel.Password, true);
+            CurrentUserService.TryInit(loginData);
             
             m_isSendingData = false;
             StateHasChanged();

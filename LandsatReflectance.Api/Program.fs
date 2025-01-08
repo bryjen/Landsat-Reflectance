@@ -2,6 +2,7 @@ open System
 open System.Text
 open System.Net.Http
 open System.Net.Http.Headers
+open FsLandsatApi.Utils
 open Microsoft.AspNetCore.Authentication.JwtBearer
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
@@ -63,8 +64,8 @@ let configureAuth (services: IServiceCollection) =
                 tokenValidationParams.ValidateLifetime <- true
                 tokenValidationParams.ValidateIssuerSigningKey <- true
                 
-                tokenValidationParams.ValidIssuer <- "FlatEarthers"
-                tokenValidationParams.ValidAudience <- "FlatEarthers"
+                tokenValidationParams.ValidIssuer <- JwtTokens.issuer 
+                tokenValidationParams.ValidAudience <- JwtTokens.audience
                 tokenValidationParams.ClockSkew <- TimeSpan.FromMinutes(5.0)
                 tokenValidationParams.IssuerSigningKey <- signingKey
                 

@@ -2,18 +2,6 @@
 @inherits LayoutComponentBase
 
 
-<style>
-    .logo {
-        background-image: url('logo.webp');
-        height: 70%;
-        aspect-ratio: 1 / 1;
-        background-size: cover;
-        background-position: center;
-
-        clip-path: circle();
-    }
-</style>
-
 <MudThemeProvider Theme="@UiService.MudTheme" IsDarkMode="UiService.IsDarkMode"/>
 <MudPopoverProvider />
 <MudDialogProvider />

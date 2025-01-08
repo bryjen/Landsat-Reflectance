@@ -40,30 +40,30 @@ public class GeocodingService
 
         if (!asJsonElement.TryGetProperty("results", out var resultsJsonElement))
         {
-            throw new NotImplementedException();
+            throw new JsonException("Could not find the property \"/results\".");
         }
 
         var resultsAsList = resultsJsonElement.EnumerateArray().ToList();
         if (resultsAsList.Count == 0)
         {
-            throw new NotImplementedException();
+            throw new JsonException("The property \"/results\" contains no values.");
         }
 
         var firstResultJsonElement = resultsAsList.First();
         if (!firstResultJsonElement.TryGetProperty("components", out var componentsJsonElement))
         {
-            throw new NotImplementedException();
+            throw new JsonException("Could not find the property \"/results[0]/components\".");
         }
         
         
         if (!componentsJsonElement.TryGetProperty("city", out var cityJsonElement))
         {
-            throw new NotImplementedException();
+            throw new JsonException("Could not find the property \"/results[0]/components/city\".");
         }
         
         if (!componentsJsonElement.TryGetProperty("country", out var countryJsonElement))
         {
-            throw new NotImplementedException();
+            throw new JsonException("Could not find the property \"/results[0]/components/country\".");
         }
 
         var city = cityJsonElement.GetString() ?? string.Empty;
