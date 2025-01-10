@@ -7,11 +7,13 @@ using LandsatReflectance.UI.Components;
 using LandsatReflectance.UI.Models;
 using LandsatReflectance.UI.Services;
 using LandsatReflectance.UI.Services.Api;
+using LandsatReflectance.UI.Utils;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.JSInterop;
 using MudBlazor;
 using MouseEvent = GoogleMapsComponents.Maps.MouseEvent;
+using Polygon = GoogleMapsComponents.Maps.Polygon;
 
 namespace LandsatReflectance.UI.Pages;
 
@@ -283,32 +285,50 @@ public partial class Map : ComponentBase
     {
         try
         {
-            var requestBodyDict = new Dictionary<string, object>
-            {
-                { "path", path },
-                { "row", row },
-                { "latitude", latLong.Latitude },
-                { "longitude", latLong.Longitude },
-                { "minCloudCoverFilter", 0d },
-                { "maxCloudCoverFilter", 1d },
-                { "notificationOffset", "01:00:00" }
-            };
-
-            if (!Environment.IsProduction())
-            {
-                Logger.LogInformation(JsonSerializer.Serialize(requestBodyDict, new JsonSerializerOptions { WriteIndented = true }));
-            }
-
-            // TODO: Add logic for 'adding' targets when you're not logged in
             FullPageLoadingOverlay.SetOverlayMessage("Adding target ...");
             FullPageLoadingOverlay.Show();
+            
+            if (CurrentUserService.IsAuthenticated)
+            {
+                var requestBodyDict = new Dictionary<string, object>
+                {
+                    { "path", path },
+                    { "row", row },
+                    { "latitude", latLong.Latitude },
+                    { "longitude", latLong.Longitude },
+                    { "minCloudCoverFilter", 0d },
+                    { "maxCloudCoverFilter", 1d },
+                    { "notificationOffset", "01:00:00" }
+                };
 
-            var target = await ApiTargetService.TryAddTarget(CurrentUserService.AccessToken, requestBodyDict);
+                if (!Environment.IsProduction())
+                {
+                    Logger.LogInformation(JsonSerializer.Serialize(requestBodyDict, new JsonSerializerOptions { WriteIndented = true }));
+                }
+                
+                var target = await ApiTargetService.TryAddTarget(CurrentUserService.AccessToken, requestBodyDict);
+                CurrentTargetsService.RegisteredTargets.Add(target);
+            }
+            else
+            {
+                await Task.Delay(TimeSpan.FromSeconds(Rand.GenerateFormDelayTime()));  // artificial delay
+                var target = new Target
+                {
+                    Path = path,
+                    Row = row,
+                    Latitude = latLong.Latitude,
+                    Longitude = latLong.Longitude,
+                    MinCloudCoverFilter = 0,
+                    MaxCloudCoverFilter = 1,
+                    NotificationOffset = TimeSpan.FromHours(1)
+                };
+                
+                CurrentTargetsService.UnregisteredTargets.Add(target);
+            }
+
             
             FullPageLoadingOverlay.Hide();
             FullPageLoadingOverlay.ClearOverlayMessage();
-            
-            CurrentTargetsService.Targets.Add(target);
             
             await ClearTargetCreationInfo();
             await RenderTargetsAsMarkersOnMap();
@@ -321,7 +341,7 @@ public partial class Map : ComponentBase
 
     private async Task RenderTargetsAsMarkersOnMap()
     {
-        foreach (var target in CurrentTargetsService.Targets)
+        foreach (var target in CurrentTargetsService.AllTargets)
         {
             var markerOptions = new MarkerOptions
             {

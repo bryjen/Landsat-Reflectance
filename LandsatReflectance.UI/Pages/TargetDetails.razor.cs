@@ -42,7 +42,7 @@ public partial class TargetDetails : ComponentBase
 
     private int _currentSceneIndex = 0;
     private List<SceneData> _sceneDatas = new();
-    private (string City, string Country)? _location = null;
+        private LocationData? _locationData = null;
 
     // Zoom style value in %
     private double _imageZoom = 33.3;
@@ -100,7 +100,7 @@ public partial class TargetDetails : ComponentBase
             return;
         }
         
-        _target = CurrentTargetsService.Targets.FirstOrDefault(target => target.Id == asGuid);
+        _target = CurrentTargetsService.RegisteredTargets.FirstOrDefault(target => target.Id == asGuid);
         if (_target is null)
         {
             _errorMsg = $"Could not find a target with the id \"{asGuid}\".";
@@ -134,7 +134,7 @@ public partial class TargetDetails : ComponentBase
                 StateHasChanged();
                 
                 var asLatLong = new LatLong((float)_target.Latitude, (float)_target.Longitude);
-                _location = await GeocodingService.GetNearestCity(asLatLong);
+                _locationData = await GeocodingService.GetNearestCity(asLatLong);
                 
                 _isLoadingLocation = false;
                 StateHasChanged();

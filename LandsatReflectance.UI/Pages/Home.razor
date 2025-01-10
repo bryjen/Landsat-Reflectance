@@ -1,9 +1,15 @@
 ﻿@page "/"
 @using LandsatReflectance.UI.Models
+@using LandsatReflectance.UI.Services.Api
 
 <PageTitle>Home</PageTitle>
 
 
+<div class="pa-4">
+    @RenderTargetsList()
+</div>
+
+@*
 @if (CurrentUserService.IsAuthenticated)
 {
     <div class="pa-4">
@@ -18,6 +24,7 @@ else
         </div>
     </div>
 }
+*@
 
 @code {
 
@@ -37,7 +44,7 @@ else
             </div>
 
             <div class="flex flex-col gap-3">
-                @if (CurrentTargetsService.IsLoadingTargets)
+                @if (CurrentTargetsService.IsLoadingTargets && CurrentUserService.IsAuthenticated)
                 {
                     <div class="flex flex-col gap-4 justify-center items-center">
                         <p class="font-bold text-lg">Loading your targets ...</p>
@@ -46,9 +53,9 @@ else
                 }
                 else
                 {
-                    @foreach (var (target, sceneData) in _targetSceneDataMap.OrderBy(kv => kv.Key.Id))
+                    @foreach (var (target, additionalTargetInformation) in _targetSceneDataMap.OrderBy(kv => kv.Key.Id))
                     {
-                        @RenderTargetItem(target, sceneData)
+                        @RenderTargetItem(target, additionalTargetInformation)
                     }
                 }
             </div>
@@ -56,7 +63,7 @@ else
     };
 
 @* ReSharper disable UnusedParameter.Local *@
-    private RenderFragment RenderTargetItem(Target target, SceneData? sceneData) => __builder =>
+    private RenderFragment RenderTargetItem(Target target, AdditionalTargetInformation additionalTargetInformation) => __builder =>
 @* ReSharper restore UnusedParameter.Local *@
     {
         RenderFragment Something(string valueName, string value) => _ =>  // don't rename this
@@ -74,25 +81,23 @@ else
         <div class="relative flex gap-4 items-center justify-between pa-3 bg-[#262c36]">
             
             <div class="flex flex-shrink-0 items-center gap-4">
-                @if (sceneData is null)
+                @if (additionalTargetInformation.SceneData is null)
                 {
                     <MudSkeleton SkeletonType="SkeletonType.Rectangle" Width="55px" Height="55px" />
                 }
                 else
                 {
                     <!-- BUG: Tailwind Styles not working ??? -->
-                    <img src="@sceneData.ThumbnailPath" alt="" style="height: 55px; width: 55px" />
+                    <img src="@additionalTargetInformation.SceneData.ThumbnailPath" alt="" style="height: 55px; width: 55px" />
                 }
 
                 <div class="flex flex-col gap-1">
-                    <div class="flex gap-4 items-center">
+                    <div class="flex gap-6 items-center">
                         <p class="font-bold">
                             @($"{target.Latitude:F}\u00b0N, {target.Longitude:F}\u00b0W")
                         </p>
 
-                        <p class="font-bold text-[0.55rem]">
-                            @target.Id
-                        </p>
+                        @RenderLocationData(target, additionalTargetInformation)
                     </div>
 
                     <div class="flex gap-4">
@@ -133,6 +138,31 @@ else
             </div>
 
         </div>
+    };
+
+@* ReSharper disable UnusedParameter.Local *@
+    private RenderFragment RenderLocationData(Target target, AdditionalTargetInformation additionalTargetInformation) => __builder =>
+@* ReSharper restore UnusedParameter.Local *@
+    {
+        switch (additionalTargetInformation.LoadedLocationData, additionalTargetInformation.LocationData)
+        {
+            case (true, null):
+                // When no valid geocoding data is present for the coord
+                break;
+            case (true, { } locationData ):
+                var locValue = $"{target.Latitude}+{target.Longitude}";
+                var googleMapsUri = $"http://maps.google.com/maps?z=12&t=m&q=loc:{locValue}";
+                
+                <div class="flex items-center">
+                    <MudIcon Icon="@Icons.Material.Filled.LocationOn"
+                             Size="@Size.Small"/>
+                    
+                    <a class="font-bold text-[0.55rem] no-underline hover:underline" href="@googleMapsUri" target="_blank">
+                        @($"{locationData.City}, {locationData.Country}")
+                    </a>
+                </div>
+                break;
+        }
     };
 
 @* ReSharper disable UnusedParameter.Local *@

@@ -1,4 +1,6 @@
 ﻿using System.Collections.Concurrent;
+using Blazored.SessionStorage;
+using LandsatReflectance.SceneBoundaries;
 using LandsatReflectance.UI.Components;
 using LandsatReflectance.UI.Models;
 using LandsatReflectance.UI.Services;
@@ -8,6 +10,15 @@ using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using MudBlazor;
 
 namespace LandsatReflectance.UI.Pages;
+
+class AdditionalTargetInformation
+{
+    public bool LoadedSceneData { get; set; }
+    public SceneData? SceneData { get; set; }
+    
+    public bool LoadedLocationData { get; set; }
+    public LocationData? LocationData { get; set; }
+}
 
 public partial class Home : ComponentBase
 {
@@ -24,6 +35,9 @@ public partial class Home : ComponentBase
     public required ISnackbar Snackbar { get; set; }
     
     [Inject]
+    public required ISyncSessionStorageService SessionStorage { get; set; }
+    
+    [Inject]
     public required ApiTargetService ApiTargetService { get; set; }
     
     [Inject]
@@ -32,12 +46,16 @@ public partial class Home : ComponentBase
     [Inject]
     public required CurrentUserService CurrentUserService { get; set; }
     
+    [Inject]
+    public required GeocodingService GeocodingService { get; set; }
+    
     
     [CascadingParameter]
     public required FullPageLoadingOverlay FullPageLoadingOverlay { get; set; }
 
 
-    private readonly ConcurrentDictionary<Target, SceneData?> _targetSceneDataMap = new();
+    // private readonly ConcurrentDictionary<Target, SceneData?> _targetSceneDataMap = new();
+    private readonly ConcurrentDictionary<Target, AdditionalTargetInformation> _targetSceneDataMap = new();
 
     
     
@@ -48,7 +66,8 @@ public partial class Home : ComponentBase
         
         CurrentUserService.OnUserLogout += CurrentTargetsService.OnUserLogout;
         
-        CurrentTargetsService.Targets.CollectionChanged += OnDataChanged;
+        CurrentTargetsService.RegisteredTargets.CollectionChanged += OnDataChanged;
+        CurrentTargetsService.UnregisteredTargets.CollectionChanged += OnDataChanged;
         CurrentTargetsService.OnIsLoadingTargetsChanged += OnDataChanged;
     }
 
@@ -63,6 +82,12 @@ public partial class Home : ComponentBase
         {
             ReInitDictionary();
         }
+        // duplicate conditions because I forgot what scenario the above if statement represents, we leave it like that
+        // this is whenever the user isn't authenticated and has unregistered targets
+        else if (isFirstRender && !CurrentUserService.IsAuthenticated)
+        {
+            ReInitDictionary();
+        }
     }
 
     protected void Dispose()
@@ -73,7 +98,8 @@ public partial class Home : ComponentBase
         
         CurrentUserService.OnUserLogout -= CurrentTargetsService.OnUserLogout;
         
-        CurrentTargetsService.Targets.CollectionChanged -= OnDataChanged;
+        CurrentTargetsService.RegisteredTargets.CollectionChanged -= OnDataChanged;
+        CurrentTargetsService.UnregisteredTargets.CollectionChanged -= OnDataChanged;
         CurrentTargetsService.OnIsLoadingTargetsChanged -= OnDataChanged;
         #nullable enable
     }
@@ -81,16 +107,15 @@ public partial class Home : ComponentBase
     private void ReInitDictionary()
     {
         _targetSceneDataMap.Clear();
-        foreach (var target in CurrentTargetsService.Targets)
+        foreach (var target in CurrentTargetsService.AllTargets)
         {
-            if (!_targetSceneDataMap.ContainsKey(target))
-            {
-                _targetSceneDataMap.TryAdd(target, null);
-                StateHasChanged();
-                
-                TryGetSceneDataFromTarget(target, retryOnFail: true);
-            }
+            _targetSceneDataMap.TryAdd(target, new AdditionalTargetInformation());
+            
+            TryGetSceneDataFromTarget(target, retryOnFail: true);
+            TryGetLocationDataFromTarget(target);
         }
+        
+        StateHasChanged();
     }
     
     private void OnDataChanged(object? sender, EventArgs _)
@@ -98,9 +123,87 @@ public partial class Home : ComponentBase
         ReInitDictionary();
         InvokeAsync(StateHasChanged);
     }
-
-    private async void TryGetSceneDataFromTarget(Target target, bool retryOnFail = false)
+    
+    
+// ReSharper disable AsyncVoidMethod
+    private async void TryGetLocationDataFromTarget(Target target)
+// ReSharper restore AsyncVoidMethod
     {
+        var addLocationDataIfApplicable = async (LocationData locationData) =>
+        {
+            if (!_targetSceneDataMap.TryGetValue(target, out var additionalTargetInformation))
+            {
+                return;
+            }
+
+            additionalTargetInformation.LocationData = locationData;
+            additionalTargetInformation.LoadedLocationData = true;
+            await InvokeAsync(StateHasChanged);
+        };
+        
+        var targetKey = $"{target.Id.ToString()};{FormatCoordinates(target.Latitude, target.Longitude)};LocationData";
+        if (SessionStorage.ContainKey(targetKey))
+        {
+            var locationData = SessionStorage.GetItem<LocationData>(targetKey);
+            await addLocationDataIfApplicable(locationData);
+            return;
+        }
+        
+        try
+        {
+            var coordinates = new LatLong((float) target.Latitude, (float) target.Longitude);
+            var locationData = await GeocodingService.GetNearestCity(coordinates);
+            
+            if (_targetSceneDataMap.TryGetValue(target, out var additionalTargetInformation))
+            {
+                additionalTargetInformation.LoadedLocationData = true;
+            }
+            
+            SessionStorage.SetItem(targetKey, locationData);
+            await addLocationDataIfApplicable(locationData);
+        }
+        catch (OperationCanceledException)
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception exception)
+        {
+            if (!Environment.IsProduction())
+            {
+                Logger.LogError(exception.Message);
+            }
+            
+            Logger.LogError(exception.ToString());
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    
+// ReSharper disable AsyncVoidMethod
+    private async void TryGetSceneDataFromTarget(Target target, bool retryOnFail = false)
+// ReSharper restore AsyncVoidMethod
+    {
+        var addSceneDataIfApplicable = async (SceneData sceneData) =>
+        {
+            if (!_targetSceneDataMap.TryGetValue(target, out var additionalTargetInformation))
+            {
+                return;
+            }
+
+            additionalTargetInformation.SceneData = sceneData;
+            additionalTargetInformation.LoadedSceneData = true;
+            await InvokeAsync(StateHasChanged);
+        };
+        
+        
+        var targetKey = $"{target.Id.ToString()};{FormatCoordinates(target.Latitude, target.Longitude)};SceneData";
+        if (SessionStorage.ContainKey(targetKey))
+        {
+            var sceneData = SessionStorage.GetItem<SceneData>(targetKey);
+            await addSceneDataIfApplicable(sceneData);
+            return;
+        }
+        
         try
         {
             var sceneDataArr = await ApiTargetService.TryGetSceneData(
@@ -110,11 +213,17 @@ public partial class Home : ComponentBase
                 2);
             
             var sceneData = sceneDataArr.FirstOrDefault();
-            if (!_targetSceneDataMap.TryAdd(target, sceneData))
+            
+            if (_targetSceneDataMap.TryGetValue(target, out var additionalTargetInformation))
             {
-                _targetSceneDataMap[target] = sceneData;
+                additionalTargetInformation.LoadedSceneData = true;
             }
-            await InvokeAsync(StateHasChanged);
+            
+            if (sceneData is not null)
+            {
+                SessionStorage.SetItem(targetKey, sceneData);
+                await addSceneDataIfApplicable(sceneData);
+            }
         }
         catch (OperationCanceledException)
         {
@@ -122,6 +231,12 @@ public partial class Home : ComponentBase
         }
         catch (Exception exception)
         {
+            if (!_targetSceneDataMap.ContainsKey(target))
+            {
+                // if the entry isn't there anymore (deleted, for example), then theres no point in trying to get the data
+                return;
+            }
+            
             if (retryOnFail)
             {
                 await Task.Delay(TimeSpan.FromSeconds(2));  // Have some delay between retry attempts
@@ -152,10 +267,11 @@ public partial class Home : ComponentBase
                 ? await ApiTargetService.TryDeleteTarget(CurrentUserService.AccessToken, target)
                 : target;
 
-            var wasDeleted = CurrentTargetsService.Targets.Remove(deletedTarget);
+            var wasDeleted = CurrentTargetsService.RegisteredTargets.Remove(deletedTarget);
             if (!Environment.IsProduction())
             {
                 Logger.LogInformation($"Try delete \"{target.Id}\" from memory: {wasDeleted}");
+                Logger.LogInformation($"\"CurrentTargetsService.Targets.Count\": {CurrentTargetsService.RegisteredTargets.Count}");
             }
 
             Snackbar.Add("Successfully deleted target", Severity.Success);
@@ -178,4 +294,7 @@ public partial class Home : ComponentBase
             FullPageLoadingOverlay.Hide();
         }
     }
+
+    private static string FormatCoordinates(double latitude, double longitude) =>
+        $"{latitude:F}N+{longitude:F}W";
 }    

@@ -5,6 +5,15 @@ using LandsatReflectance.SceneBoundaries;
 
 namespace LandsatReflectance.UI.Services.Api;
 
+
+
+public class LocationData
+{
+    public string City { get; set; } = string.Empty;
+    public string Country { get; set; } = string.Empty;
+}
+
+
 // Uses OpenCage's Geocoding API.
 
 public class GeocodingService
@@ -28,7 +37,7 @@ public class GeocodingService
         _httpClient.BaseAddress = new Uri("https://api.opencagedata.com/geocode/v1/");
     }
 
-    public async Task<(string City, string Country)> GetNearestCity(LatLong latLong)
+    public async Task<LocationData> GetNearestCity(LatLong latLong)
     {
         _httpClient.DefaultRequestHeaders.Authorization = null;  // clear auth header, not needed
 
@@ -66,8 +75,10 @@ public class GeocodingService
             throw new JsonException("Could not find the property \"/results[0]/components/country\".");
         }
 
-        var city = cityJsonElement.GetString() ?? string.Empty;
-        var country = countryJsonElement.GetString() ?? string.Empty;
-        return (city, country);
+        return new LocationData
+        {
+            City = cityJsonElement.GetString() ?? string.Empty,
+            Country = countryJsonElement.GetString() ?? string.Empty
+        };
     }
 }
