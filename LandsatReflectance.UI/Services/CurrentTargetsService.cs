@@ -113,6 +113,7 @@ public class CurrentTargetsService
     internal void OnUserLogout(object? sender, EventArgs eventArgs)
     {
         RegisteredTargets.Clear();
+        UnregisteredTargets.Clear();
         HasLoadedUserTargets = false;
     }
 }

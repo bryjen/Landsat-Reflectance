@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.JSInterop;
 using MudBlazor;
+using Serilog;
 using MouseEvent = GoogleMapsComponents.Maps.MouseEvent;
 using Polygon = GoogleMapsComponents.Maps.Polygon;
 
@@ -77,8 +78,10 @@ public partial class Map : ComponentBase
     
     private GoogleMap m_googleMap = null!;
     private MapOptions m_mapOptions = null!;
-
+    
     private TargetCreationInfo? _targetCreationInfo = null;
+
+    private List<Marker> _markers = new();
 
     private const string ParentDivHeight = "height: calc(100vh - (var(--mud-appbar-height) - var(--mud-appbar-height) / 4))";
     private const string RegionColor = "#000000";
@@ -107,6 +110,7 @@ public partial class Map : ComponentBase
         CurrentUserService.OnUserAuthenticated += CurrentTargetsService.LoadUserTargets;
         
         CurrentUserService.OnUserLogout += CurrentTargetsService.OnUserLogout;
+        CurrentUserService.OnUserLogout += OnUserLogout;
     }
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
@@ -138,9 +142,29 @@ public partial class Map : ComponentBase
         CurrentUserService.OnUserAuthenticated -= CurrentTargetsService.LoadUserTargets;
         
         CurrentUserService.OnUserLogout -= CurrentTargetsService.OnUserLogout;
+        CurrentUserService.OnUserLogout -= OnUserLogout;
         #nullable enable
     }
 
+    private async void OnUserLogout(object? sender, EventArgs eventArgs)
+    {
+        // Prevents the bugs of targets still persisting on the map when the user logs out.
+        // Page needs to be manually refreshed/re-rendered.
+        
+        try
+        {
+            StateHasChanged();
+            await ClearAllMarkers();
+            // await RefreshGoogleMaps();
+        }
+        catch (Exception exception)
+        {
+            if (!Environment.IsProduction())
+            {
+                Logger.LogWarning($"An exception of type \"{exception.GetType()}\" happened on 'OnUserLogout' with message: \"{exception.Message}\".");
+            }
+        }
+    }
     
     private async Task OnAfterMapRender()
     {
@@ -354,7 +378,9 @@ public partial class Map : ComponentBase
                 }
             };
 
-            var _ = await Marker.CreateAsync(m_googleMap.JsRuntime, markerOptions);
+            var marker = await Marker.CreateAsync(m_googleMap.JsRuntime, markerOptions);
+            _markers.Add(marker);
+            
             /*
             await newMarker.AddListener<MouseEvent>("click", async mouseEvent =>
             {
@@ -364,6 +390,16 @@ public partial class Map : ComponentBase
         }
         
         await RefreshGoogleMaps();
+    }
+
+    private async Task ClearAllMarkers()
+    {
+        foreach (var marker in _markers)
+        {
+            await marker.SetMap(null);
+        }
+        
+        _markers.Clear();
     }
 
 
