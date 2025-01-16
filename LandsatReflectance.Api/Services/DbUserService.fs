@@ -67,8 +67,6 @@ type DbUserService(
         csb.MinimumPoolSize <- uint 0
         csb.MaximumPoolSize <- uint 10
         
-        csb.SslMode <- MySqlSslMode.Disabled
-        
         csb.ConnectionTimeout <- uint 10
         
         csb

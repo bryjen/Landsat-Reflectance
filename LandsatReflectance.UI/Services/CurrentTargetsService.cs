@@ -9,7 +9,16 @@ namespace LandsatReflectance.UI.Services;
 
 public class CurrentTargetsService
 {
-    public ObservableCollection<Target> Targets { get; set; } = new();
+    /// <summary>
+    /// Targets not bound to any user. Targets selected when the user isn't logged in gets placed here.
+    /// </summary>
+    public ObservableCollection<Target> UnregisteredTargets { get; set; } = new();
+    
+    /// <summary>
+    /// Targets that are bound to a user, unlike 'UnregisteredTargets'.
+    /// </summary>
+    public ObservableCollection<Target> RegisteredTargets { get; set; } = new();
+    
     
     public bool HasLoadedUserTargets { get; private set; } = false;
 
@@ -43,11 +52,17 @@ public class CurrentTargetsService
         _apiTargetService = apiTargetService;
     }
 
+    /// <summary>
+    /// Returns both registered and unregistered targets.
+    /// </summary>
+    public IEnumerable<Target> AllTargets => 
+        UnregisteredTargets.Concat(RegisteredTargets).ToList();
+
     internal void SaveTargetsCreatedOffline(object? sender, AuthenticatedEventArgs authenticatedEventArgs)
     {
+        // TODO
     }
 
-    
     internal async void LoadUserTargets(object? sender, AuthenticatedEventArgs authenticatedEventArgs)
     {
         try
@@ -82,7 +97,7 @@ public class CurrentTargetsService
             {
                 foreach (var target in targets)
                 {
-                    Targets.Add(target);
+                    RegisteredTargets.Add(target);
                 }
 
                 HasLoadedUserTargets = true;
@@ -97,7 +112,7 @@ public class CurrentTargetsService
 
     internal void OnUserLogout(object? sender, EventArgs eventArgs)
     {
-        Targets.Clear();
+        RegisteredTargets.Clear();
         HasLoadedUserTargets = false;
     }
 }

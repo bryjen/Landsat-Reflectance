@@ -106,6 +106,7 @@ module private EndpointOpenApiConfigs =
                 o.Description <-"Fetches landsat scene information from the **\"landsat_ot_c2_l2\"** database related to a specific path and row."
                 
                 
+                (*
                 let securityRequirement = OpenApiSecurityRequirement()
                 securityRequirement.Add(
                     OpenApiSecurityScheme(
@@ -117,6 +118,7 @@ module private EndpointOpenApiConfigs =
                     [|  |] 
                 )
                 o.Security <- [| securityRequirement |]
+                *)
                 
                 let pathParam = OpenApiParameter()
                 pathParam.Name <- "path"
@@ -311,7 +313,7 @@ let mustBeLoggedIn: HttpHandler = requiresAuthentication notLoggedIn
     
 let endpoints: Routers.Endpoint list = [
     Routers.GET [
-        Routers.route "/scene" (GET >=> mustBeLoggedIn >=> requestIdMiddleware >=> sceneHandler)
+        Routers.route "/scene" (GET >=> requestIdMiddleware >=> sceneHandler)
         |> addOpenApi EndpointOpenApiConfigs.sceneEndpointConfig
         
         Routers.route "/user/targets" (GET >=> mustBeLoggedIn >=> requestIdMiddleware >=> UserTargetsGet.handler)

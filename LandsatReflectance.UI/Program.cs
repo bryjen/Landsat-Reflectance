@@ -1,6 +1,7 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using Blazored.LocalStorage;
+using Blazored.SessionStorage;
 using GoogleMapsComponents;
 // using LandsatReflectance.Common.Converters;
 // using LandsatReflectance.Models;
@@ -31,6 +32,7 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 // Fuck no easy way to hide this thing in wasm
 // TODO: Change & Restrict before making repo public
 builder.Services.AddBlazorGoogleMaps("AIzaSyCDocP3wfMPBO_0YWpaxlZiISEHwgStdQU");
+
 
 
 builder.Services.AddSingleton(_ =>
@@ -71,5 +73,6 @@ builder.Services.AddMudServices();
 builder.Services.AddMudExtensions();
 
 builder.Services.AddBlazoredLocalStorageAsSingleton();
+builder.Services.AddBlazoredSessionStorageAsSingleton();
 
 await builder.Build().RunAsync();
