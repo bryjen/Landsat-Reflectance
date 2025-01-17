@@ -61,12 +61,16 @@
                 var imageStyles = new StyleBuilder()
                     .AddStyle($"width: {_imageZoom}%")
                     .Build();
-
+                
                 @RenderControlPanelOverlay
 
-                // inshallah _currentSceneIndex is in the correct bounds
-                <img alt="image" src="@(_sceneDatas[_currentSceneIndex].BrowsePath)"
+                <img id="SceneImage" alt="image" src="@(_sceneDatas[_currentSceneIndex].BrowsePath)"
                      class="" style="@imageStyles"/>
+            @*
+                var alt = $"data:image/png;base64,{TestDataStr}";
+                <img id="SceneImage" alt="image" src="@alt"
+                     class="" style="@imageStyles"/>
+*@
             }
         </div>
     };

@@ -91,6 +91,27 @@ module private EndpointOpenApiConfigs =
                 o.Parameters.Add(pathParam)
                 
                 o))
+        
+        
+    let GET_sceneDataStrEndpointConfig = 
+        OpenApiConfig(
+            responseBodies = [| ResponseBody(typeof<ApiResponse<SimplifiedSceneData array>>) |],
+            configureOperation = (fun o ->
+                o.Tags.Clear()
+                let tag = OpenApiTag()
+                tag.Name <- "scene"
+                o.Tags.Add(tag)
+                
+                o.OperationId <- "GET_scene_data_str"
+                o.Summary <- "Fetches an image as a base 64 encoded string."
+                
+                let resultsParam = OpenApiParameter()
+                resultsParam.Name <- "product-id"
+                resultsParam.In <- ParameterLocation.Query
+                resultsParam.Schema <- stringSchema
+                o.Parameters.Add(resultsParam)
+                
+                o))
     
     let sceneEndpointConfig = 
         OpenApiConfig(
@@ -169,7 +190,6 @@ module private EndpointOpenApiConfigs =
                 o.OperationId <- "POST_createUser"
                 o.Summary <- "Attempts to create a user."
                 o))
-        
         
     let GET_userTargetsEndpointConfig = 
         OpenApiConfig(
@@ -313,7 +333,14 @@ let mustBeLoggedIn: HttpHandler = requiresAuthentication notLoggedIn
     
 let endpoints: Routers.Endpoint list = [
     Routers.GET [
-        Routers.route "/scene" (GET >=> requestIdMiddleware >=> sceneHandler)
+        
+        // No auth requirements for scene endpoints because we would still like the user to be able to see scene information
+        // without being logged in.
+        
+        Routers.route "/scene-data-str" (GET >=> requestIdMiddleware >=> SceneDataStr.handler)
+        |> addOpenApi EndpointOpenApiConfigs.GET_sceneDataStrEndpointConfig
+        
+        Routers.route "/scene" (GET >=> requestIdMiddleware >=> SceneHandler.handler)
         |> addOpenApi EndpointOpenApiConfigs.sceneEndpointConfig
         
         Routers.route "/user/targets" (GET >=> mustBeLoggedIn >=> requestIdMiddleware >=> UserTargetsGet.handler)

@@ -1,9 +1,12 @@
 ﻿module LandsatReflectance.Api.Services.UsgsSceneService
 
+open System
 open System.IO
 open System.Text
 open System.Net.Http
 
+open FsToolkit.ErrorHandling
+open FsToolkit.ErrorHandling.Operator.TaskResult
 open Microsoft.FSharp.Control
 
 open LandsatReflectance.Api.Models.Usgs.Scene
@@ -63,3 +66,21 @@ type UsgsSceneService(
                     Error errorValue
         }
         
+    member this.GetSceneAsBase64String(productId: string) =
+        let getBases64String (authToken: string) =
+            task {
+                try
+                    use httpClient = new HttpClient()
+                    httpClient.DefaultRequestHeaders.Add("X-Auth-Token", authToken)
+                    
+                    let imgUrl = $"https://landsatlook.usgs.gov/gen-browse?size=rrb&type=refl&product_id={productId}"
+                    let! imgBytes = httpClient.GetByteArrayAsync(imgUrl)
+                    return Ok (Convert.ToBase64String(imgBytes))
+                with
+                | ex ->
+                    return Error ex.Message
+            }
+        
+        usgsTokenService.GetToken()
+        |> TaskResult.mapError _.Message
+        |> TaskResult.bind getBases64String

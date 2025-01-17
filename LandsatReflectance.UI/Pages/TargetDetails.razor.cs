@@ -1,4 +1,6 @@
-﻿using LandsatReflectance.SceneBoundaries;
+﻿using Blazored.LocalStorage;
+using Blazored.SessionStorage;
+using LandsatReflectance.SceneBoundaries;
 using LandsatReflectance.UI.Models;
 using LandsatReflectance.UI.Services;
 using LandsatReflectance.UI.Services.Api;
@@ -13,7 +15,13 @@ public partial class TargetDetails : ComponentBase
     public required IWebAssemblyHostEnvironment Environment { get; set; }
     
     [Inject]
+    public required HttpClient HttpClient { get; set; }
+    
+    [Inject]
     public required NavigationManager NavigationManager { get; set; }
+    
+    [Inject]
+    public required ISyncSessionStorageService SessionStorageService { get; set; }
     
     [Inject]
     public required ApiTargetService ApiTargetService { get; set; }
@@ -145,4 +153,19 @@ public partial class TargetDetails : ComponentBase
             }
         }
     }
+
+    private async void AddScenesToSessionStorage(IEnumerable<SceneData> sceneDatas)
+    {
+        foreach (var sceneData in sceneDatas)
+        {
+            if (sceneData.BrowsePath is not null && !SessionStorageService.ContainKey(GetBrowsePathString(sceneData)))
+            {
+                var imgBytes = await HttpClient.GetByteArrayAsync(sceneData.BrowsePath);
+                var asBase64String = Convert.ToBase64String(imgBytes);
+                SessionStorageService.SetItem(GetBrowsePathString(sceneData), asBase64String);
+            }
+        }
+    }
+
+    private static string GetBrowsePathString(SceneData sceneData) => $"browse-path:{sceneData.EntityId}";
 }
