@@ -295,6 +295,11 @@ public partial class Home : ComponentBase
         }
     }
 
+    private void NavigateToDetailedView(Target target)
+    {
+        NavigationManager.NavigateTo($"TargetDetails?target-id={target.Id}");
+    }
+
     private static string FormatCoordinates(double latitude, double longitude) =>
         $"{latitude:F}N+{longitude:F}W";
 }    

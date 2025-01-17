@@ -52,11 +52,11 @@
             {
                 <MudProgressCircular Indeterminate Size="Size.Large" Color="Color.Primary"/>
                 <p class="font-bold text-xl text-white">
-                    Loading Image ...
+                    @_loadingMsg
                 </p>
             }
 
-            @if (_sceneDatas.Count > 0)
+            @if (_sceneDataToImgStrMap.Count > 0)
             {
                 var imageStyles = new StyleBuilder()
                     .AddStyle($"width: {_imageZoom}%")
@@ -64,13 +64,15 @@
                 
                 @RenderControlPanelOverlay
 
+                @*
                 <img id="SceneImage" alt="image" src="@(_sceneDatas[_currentSceneIndex].BrowsePath)"
                      class="" style="@imageStyles"/>
-            @*
-                var alt = $"data:image/png;base64,{TestDataStr}";
+*@
+
+                var base64Str = _sceneDataToImgStrMap.Values.ToArray()[_currentSceneIndex];
+                var alt = $"data:image/png;base64,{base64Str}";
                 <img id="SceneImage" alt="image" src="@alt"
                      class="" style="@imageStyles"/>
-*@
             }
         </div>
     };
@@ -108,12 +110,12 @@
                 <MudIconButton Icon="@Icons.Material.Filled.ArrowRight"
                                Variant="@Variant.Outlined"
                                Size="@Size.Small"
-                               Disabled="@(_currentSceneIndex >= _sceneDatas.Count - 1)"
+                               Disabled="@(_currentSceneIndex >= _sceneDataToImgStrMap.Count - 1)"
                                OnClick="@(_ => { _currentSceneIndex++; _showImageLoadingDelayWarning = false; })"
                 />
 
                 <p class="select-none">
-                    @(new MarkupString($"<b>Current Image</b>: {_currentSceneIndex + 1}/{_sceneDatas.Count}"))
+                    @(new MarkupString($"<b>Current Image</b>: {_currentSceneIndex + 1}/{_sceneDataToImgStrMap.Count}"))
                 </p>
             </div>
             
@@ -126,7 +128,7 @@
 
             @if (_target is not null)
             {
-                var currentScene = _sceneDatas[_currentSceneIndex];
+                var currentScene = _sceneDataToImgStrMap.Keys.ToArray()[_currentSceneIndex];
                 
                 <MudButton Size="Size.Small"
                            OnClick="@(_ => _showQuickSummary = !_showQuickSummary)">
