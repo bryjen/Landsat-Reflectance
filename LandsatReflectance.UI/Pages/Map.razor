@@ -6,7 +6,7 @@
 <MudPaper Elevation="5" Style="@ParentDivHeight">
     <div class="relative h-full w-full">
         @RenderSelectionPopup
-        <GoogleMap @ref="@m_googleMap" Id="map1" Options="@m_mapOptions" Height="100%" OnAfterInit="OnAfterMapRender"></GoogleMap>
+        <GoogleMap @ref="@_googleMap" Id="map1" Options="@_mapOptions" Height="100%" OnAfterInit="OnAfterMapRender"></GoogleMap>
     </div>
 </MudPaper>
 

@@ -75,8 +75,9 @@ public partial class Map : ComponentBase
     public required FullPageLoadingOverlay FullPageLoadingOverlay { get; set; } 
     
     
-    private GoogleMap m_googleMap = null!;
-    private MapOptions m_mapOptions = null!;
+    private GoogleMap _googleMap = null!;
+    private MapOptions _mapOptions = null!;
+    private List<Marker> _markers = new();
 
     private TargetCreationInfo? _targetCreationInfo = null;
 
@@ -87,7 +88,7 @@ public partial class Map : ComponentBase
     
     protected override void OnInitialized()
     {
-        m_mapOptions = new MapOptions
+        _mapOptions = new MapOptions
         {
             Zoom = 2,
             Center = new LatLngLiteral
@@ -107,6 +108,7 @@ public partial class Map : ComponentBase
         CurrentUserService.OnUserAuthenticated += CurrentTargetsService.LoadUserTargets;
         
         CurrentUserService.OnUserLogout += CurrentTargetsService.OnUserLogout;
+        CurrentUserService.OnUserLogout += ClearAllMarkersOnMap;
     }
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
@@ -127,7 +129,13 @@ public partial class Map : ComponentBase
         if (isFirstRender && CurrentUserService.IsAuthenticated && !CurrentTargetsService.HasLoadedUserTargets)
         {
             await CurrentTargetsService.LoadUserTargetsCore(CurrentUserService.AccessToken);
-            await RenderTargetsAsMarkersOnMap();
+            
+            // Render all targets as markers
+            foreach (var target in CurrentTargetsService.AllTargets)
+            {
+                await CreateMarker(target);
+            }
+            await RefreshGoogleMaps();
         }
     }
     
@@ -138,14 +146,21 @@ public partial class Map : ComponentBase
         CurrentUserService.OnUserAuthenticated -= CurrentTargetsService.LoadUserTargets;
         
         CurrentUserService.OnUserLogout -= CurrentTargetsService.OnUserLogout;
+        CurrentUserService.OnUserLogout -= ClearAllMarkersOnMap;
         #nullable enable
     }
 
     
     private async Task OnAfterMapRender()
     {
-        await m_googleMap.InteropObject.AddListener<MouseEvent>("click", mouseEvents => { _ = OnMapClick(mouseEvents); });
-        await RenderTargetsAsMarkersOnMap();
+        await _googleMap.InteropObject.AddListener<MouseEvent>("click", mouseEvents => { _ = OnMapClick(mouseEvents); });
+        
+        // Render all targets as markers
+        foreach (var target in CurrentTargetsService.AllTargets)
+        {
+            await CreateMarker(target);
+        }
+        await RefreshGoogleMaps();
     }
 
     
@@ -164,7 +179,7 @@ public partial class Map : ComponentBase
         var markerOptions = new MarkerOptions
         {
             Position = e.LatLng,
-            Map = m_googleMap.InteropObject,
+            Map = _googleMap.InteropObject,
             // Title = "something",
             // Label = $"Marker @ {e.LatLng.Lat:F}, {e.LatLng.Lng:F}",
             Draggable = false,
@@ -174,7 +189,7 @@ public partial class Map : ComponentBase
             }
         };
 
-        var newMarker = await Marker.CreateAsync(m_googleMap.JsRuntime, markerOptions);
+        var newMarker = await Marker.CreateAsync(_googleMap.JsRuntime, markerOptions);
         await newMarker.AddListener<MouseEvent>("click", async mouseEvent =>
         {
             await mouseEvent.Stop();
@@ -199,14 +214,13 @@ public partial class Map : ComponentBase
             // AssociatedMapPolygons = mapPolygons,
             
             ScenePolygonMap = scenePolygonMap
-            
         };
         StateHasChanged();  // re-render to display selection pop-up
     }
 
     private async Task<Polygon> DrawSceneOnMap(Wrs2Scene wrs2Scene)
     {
-        var polygon = await Polygon.CreateAsync(m_googleMap.JsRuntime, CreatePolygonOptions(RegionColor));
+        var polygon = await Polygon.CreateAsync(_googleMap.JsRuntime, CreatePolygonOptions(RegionColor));
         var latLongList = new List<LatLong>
         {
             wrs2Scene.LowerLeft,
@@ -308,6 +322,8 @@ public partial class Map : ComponentBase
                 
                 var target = await ApiTargetService.TryAddTarget(CurrentUserService.AccessToken, requestBodyDict);
                 CurrentTargetsService.RegisteredTargets.Add(target);
+                
+                var _ = CreateMarker(target);
             }
             else
             {
@@ -324,14 +340,16 @@ public partial class Map : ComponentBase
                 };
                 
                 CurrentTargetsService.UnregisteredTargets.Add(target);
+                
+                var _ = CreateMarker(target);
             }
-
             
             FullPageLoadingOverlay.Hide();
             FullPageLoadingOverlay.ClearOverlayMessage();
             
             await ClearTargetCreationInfo();
-            await RenderTargetsAsMarkersOnMap();
+            await RefreshGoogleMaps();
+            // await RenderTargetsAsMarkersOnMap();
         }
         catch (Exception)
         {
@@ -339,31 +357,30 @@ public partial class Map : ComponentBase
         }
     }
 
-    private async Task RenderTargetsAsMarkersOnMap()
+    private async Task<Marker> CreateMarker(Target target)
     {
-        foreach (var target in CurrentTargetsService.AllTargets)
+        var markerOptions = new MarkerOptions
         {
-            var markerOptions = new MarkerOptions
+            Position = new LatLngLiteral(target.Latitude, target.Longitude),
+            Map = _googleMap.InteropObject,
+            Draggable = false,
+            Icon = new Icon
             {
-                Position = new LatLngLiteral(target.Latitude, target.Longitude),
-                Map = m_googleMap.InteropObject,
-                Draggable = false,
-                Icon = new Icon
-                {
-                    Url = "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
-                }
-            };
+                Url = "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+            }
+        };
 
-            var _ = await Marker.CreateAsync(m_googleMap.JsRuntime, markerOptions);
-            /*
-            await newMarker.AddListener<MouseEvent>("click", async mouseEvent =>
-            {
-                await mouseEvent.Stop();
-            });
-             */
-        }
+        var marker = await Marker.CreateAsync(_googleMap.JsRuntime, markerOptions);
         
-        await RefreshGoogleMaps();
+        /*
+        await newMarker.AddListener<MouseEvent>("click", async mouseEvent =>
+        {
+            await mouseEvent.Stop();
+        });
+         */
+
+        _markers.Add(marker);
+        return marker;
     }
 
 
@@ -371,12 +388,32 @@ public partial class Map : ComponentBase
     {
         // Changing a property should 'refresh' and re-render the map
         // The below shouldn't change nothin
-        await m_googleMap.InteropObject.SetZoom(await m_googleMap.InteropObject.GetZoom());
+        await _googleMap.InteropObject.SetZoom(await _googleMap.InteropObject.GetZoom());
+    }
+
+    private async void ClearAllMarkersOnMap(object? sender, EventArgs eventArgs)
+    {
+        try
+        {
+            foreach (var marker in _markers)
+            {
+                await marker.SetMap(null);
+            }
+
+            _markers.Clear();
+        }
+        catch (Exception exception)
+        {
+            if (!Environment.IsProduction())
+            {
+                Logger.LogError(exception.Message);
+            }
+        }
     }
     
     private PolygonOptions CreatePolygonOptions(string colorString) => new()
     {
-        Map = m_googleMap.InteropObject,
+        Map = _googleMap.InteropObject,
         StrokeColor = colorString,
         StrokeOpacity = 0.25f,
         FillColor = colorString,
