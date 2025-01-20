@@ -347,5 +347,5 @@ public partial class TargetDetails : ComponentBase
     
     private static string HashBrowsePath(SceneData sceneData) => $"browse-path:{sceneData.EntityId}";
     
-    private static string HashTarget(Target target) => $"target-details:{target.Id}";
+    private static string HashTarget(Target target) => $"target-details:{target.Id};{target.Latitude};{target.Longitude}";
 }

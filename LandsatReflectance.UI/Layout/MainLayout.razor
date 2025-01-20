@@ -7,7 +7,9 @@
 <MudDialogProvider />
 <MudSnackbarProvider />
 
-<FullPageLoadingOverlay @ref="@m_fullPageLoadingOverlay" />
+<FullPageLoadingOverlay @ref="@_fullPageLoadingOverlay" />
+
+
 
 <div class="page mud-layout">
     <main>
@@ -18,10 +20,10 @@
 
             <NavMenu 
                 IsDrawerExpanded="@UiService.IsDrawerExpanded"
-                FullPageLoadingOverlay="@m_fullPageLoadingOverlay" />
+                FullPageLoadingOverlay="@_fullPageLoadingOverlay" />
 
             <MudMainContent>
-                <CascadingValue Value="@m_fullPageLoadingOverlay">
+                <CascadingValue Value="@_fullPageLoadingOverlay">
                     @Body
                 </CascadingValue>
             </MudMainContent>

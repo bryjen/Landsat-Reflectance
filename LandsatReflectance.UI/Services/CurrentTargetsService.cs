@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using Blazored.LocalStorage;
 using LandsatReflectance.UI.Models;
 using LandsatReflectance.UI.Services.Api;
 using LandsatReflectance.UI.Utils;
@@ -39,17 +40,22 @@ public class CurrentTargetsService
 
     private readonly ILogger<CurrentUserService> _logger;
     private readonly IWebAssemblyHostEnvironment _environment;
+    private readonly ISyncLocalStorageService _localStorageService;
     private readonly ApiTargetService _apiTargetService;
     
 
     public CurrentTargetsService(
         ILogger<CurrentUserService> logger,
         IWebAssemblyHostEnvironment webAssemblyHostEnvironment,
+        ISyncLocalStorageService localStorageService,
         ApiTargetService apiTargetService)
     {
         _logger = logger;
         _environment = webAssemblyHostEnvironment;
+        _localStorageService = localStorageService;
         _apiTargetService = apiTargetService;
+        
+        InitUnregisteredTargets();
     }
 
     /// <summary>
@@ -57,6 +63,27 @@ public class CurrentTargetsService
     /// </summary>
     public IEnumerable<Target> AllTargets => 
         UnregisteredTargets.Concat(RegisteredTargets).ToList();
+
+    
+    public void AddUnregisteredTarget(Target target)
+    {
+        UnregisteredTargets.Add(target);
+        _localStorageService.SetItem(HashUnregisteredTarget(target), target);
+    }
+
+    public bool RemoveUnregisteredTarget(Target target)
+    {
+        var wasRemoved = UnregisteredTargets.Remove(target);
+
+        var key = HashUnregisteredTarget(target);
+        if (_localStorageService.ContainKey(key))
+        {
+            _localStorageService.RemoveItem(key);
+        }
+
+        return wasRemoved;
+    }
+    
 
     internal void SaveTargetsCreatedOffline(object? sender, AuthenticatedEventArgs authenticatedEventArgs)
     {
@@ -109,10 +136,28 @@ public class CurrentTargetsService
         }
     }
 
-
     internal void OnUserLogout(object? sender, EventArgs eventArgs)
     {
         RegisteredTargets.Clear();
         HasLoadedUserTargets = false;
     }
+
+    private void InitUnregisteredTargets()
+    {
+        foreach (var key in _localStorageService.Keys())
+        {
+            if (key.StartsWith("unregistered-target:"))
+            {
+                var target = _localStorageService.GetItem<Target>(key);
+                
+                if (target is not null)
+                {
+                    UnregisteredTargets.Add(target);
+                }
+            }
+        }
+    }
+    
+    private static string HashUnregisteredTarget(Target target) 
+        => $"unregistered-target:{target.Longitude};{target.Latitude}";
 }

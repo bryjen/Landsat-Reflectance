@@ -82,6 +82,10 @@ public partial class Map : ComponentBase
     private TargetCreationInfo? _targetCreationInfo = null;
 
     private const string ParentDivHeight = "height: calc(100vh - (var(--mud-appbar-height) - var(--mud-appbar-height) / 4))";
+
+    private const string RegisteredTargetMarkerUrl = "http://maps.google.com/mapfiles/ms/icons/blue-dot.png";
+    private const string UnregisteredTargetMarkerUrl = "http://maps.google.com/mapfiles/ms/icons/red-dot.png";
+        
     private const string RegionColor = "#000000";
     private const string SelectedRegionColor = "#FF0000";
 
@@ -185,7 +189,7 @@ public partial class Map : ComponentBase
             Draggable = false,
             Icon = new Icon
             {
-                Url = "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+                Url = CurrentUserService.IsAuthenticated ? RegisteredTargetMarkerUrl : UnregisteredTargetMarkerUrl
             }
         };
 
@@ -339,7 +343,7 @@ public partial class Map : ComponentBase
                     NotificationOffset = TimeSpan.FromHours(1)
                 };
                 
-                CurrentTargetsService.UnregisteredTargets.Add(target);
+                CurrentTargetsService.AddUnregisteredTarget(target);
                 
                 var _ = CreateMarker(target);
             }
@@ -366,7 +370,7 @@ public partial class Map : ComponentBase
             Draggable = false,
             Icon = new Icon
             {
-                Url = "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+                Url = target.Id != Guid.Empty ? RegisteredTargetMarkerUrl : UnregisteredTargetMarkerUrl
             }
         };
 
