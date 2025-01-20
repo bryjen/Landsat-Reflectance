@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using Blazored.LocalStorage;
 using Blazored.SessionStorage;
 using LandsatReflectance.SceneBoundaries;
 using LandsatReflectance.UI.Components;
@@ -35,7 +36,7 @@ public partial class Home : ComponentBase
     public required ISnackbar Snackbar { get; set; }
     
     [Inject]
-    public required ISyncSessionStorageService SessionStorage { get; set; }
+    public required ISyncSessionStorageService SessionStorageService { get; set; }
     
     [Inject]
     public required ApiTargetService ApiTargetService { get; set; }
@@ -142,9 +143,9 @@ public partial class Home : ComponentBase
         };
         
         var targetKey = $"{target.Id.ToString()};{FormatCoordinates(target.Latitude, target.Longitude)};LocationData";
-        if (SessionStorage.ContainKey(targetKey))
+        if (SessionStorageService.ContainKey(targetKey))
         {
-            var locationData = SessionStorage.GetItem<LocationData>(targetKey);
+            var locationData = SessionStorageService.GetItem<LocationData>(targetKey);
             await addLocationDataIfApplicable(locationData);
             return;
         }
@@ -159,7 +160,7 @@ public partial class Home : ComponentBase
                 additionalTargetInformation.LoadedLocationData = true;
             }
             
-            SessionStorage.SetItem(targetKey, locationData);
+            SessionStorageService.SetItem(targetKey, locationData);
             await addLocationDataIfApplicable(locationData);
         }
         catch (OperationCanceledException)
@@ -197,9 +198,9 @@ public partial class Home : ComponentBase
         
         
         var targetKey = $"{target.Id.ToString()};{FormatCoordinates(target.Latitude, target.Longitude)};SceneData";
-        if (SessionStorage.ContainKey(targetKey))
+        if (SessionStorageService.ContainKey(targetKey))
         {
-            var sceneData = SessionStorage.GetItem<SceneData>(targetKey);
+            var sceneData = SessionStorageService.GetItem<SceneData>(targetKey);
             await addSceneDataIfApplicable(sceneData);
             return;
         }
@@ -220,7 +221,7 @@ public partial class Home : ComponentBase
             
             if (sceneData is not null)
             {
-                SessionStorage.SetItem(targetKey, sceneData);
+                SessionStorageService.SetItem(targetKey, sceneData);
                 await addSceneDataIfApplicable(sceneData);
             }
         }
@@ -262,15 +263,16 @@ public partial class Home : ComponentBase
             FullPageLoadingOverlay.SetOverlayMessage("Deleting target...");
             FullPageLoadingOverlay.Show();
 
-            var deletedTarget = CurrentUserService.IsAuthenticated 
-                ? await ApiTargetService.TryDeleteTarget(CurrentUserService.AccessToken, target)
-                : target;
-
-            var wasDeleted = CurrentTargetsService.RegisteredTargets.Remove(deletedTarget);
-            if (!Environment.IsProduction())
+            if (target.Id == Guid.Empty)
             {
-                Logger.LogInformation($"Try delete \"{target.Id}\" from memory: {wasDeleted}");
-                Logger.LogInformation($"\"CurrentTargetsService.Targets.Count\": {CurrentTargetsService.RegisteredTargets.Count}");
+                // Unregistered Target
+                var _ = CurrentTargetsService.RemoveUnregisteredTarget(target);
+            }
+            else
+            {
+                // Registered Target
+                var deletedTarget = await ApiTargetService.TryDeleteTarget(CurrentUserService.AccessToken, target);
+                var _ = CurrentTargetsService.RegisteredTargets.Remove(deletedTarget);
             }
 
             Snackbar.Add("Successfully deleted target", Severity.Success);

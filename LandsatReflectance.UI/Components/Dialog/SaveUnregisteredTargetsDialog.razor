@@ -1,0 +1,24 @@
+﻿<MudDialog>
+    <TitleContent>
+        <p class="font-bold text-xl">
+            You have unsaved targets
+        </p>
+    </TitleContent>
+    <DialogContent>
+        Some targets were created when you were logged out. Do you want to save these targets to your account?
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save">
+            Save
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Error">
+            Leave As Is
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code
+{
+    [CascadingParameter] 
+    private MudDialogInstance MudDialog { get; set; } = null!;
+}

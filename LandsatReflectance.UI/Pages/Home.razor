@@ -97,6 +97,14 @@ else
                             @($"{target.Latitude:F}\u00b0N, {target.Longitude:F}\u00b0W")
                         </p>
 
+                        @* if unregistered target *@
+                        @if (target.Id == Guid.Empty)
+                        {
+                            <p class="p-[0.15rem] font-bold text-[0.55rem] no-underline border rounded">
+                                Unsaved
+                            </p>
+                        }
+
                         @RenderLocationData(target, additionalTargetInformation)
                     </div>
 

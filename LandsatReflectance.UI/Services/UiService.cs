@@ -30,7 +30,6 @@ public class UiService
 
     
     
-
     private readonly Typography m_typography = new()
     {
         Default = new Default
@@ -39,6 +38,16 @@ public class UiService
             FontFamily = [ "Roboto", "sans-serif" ]
         }
     };
+    
+    /*
+    private readonly Typography m_typography = new()
+    {
+        Default = new DefaultTypography
+        {
+            FontFamily = [ "Roboto", "sans-serif" ]
+        }
+    };
+     */
     
     private readonly PaletteLight _lightPalette = new()
     {

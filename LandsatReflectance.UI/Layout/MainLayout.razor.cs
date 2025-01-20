@@ -1,18 +1,26 @@
 ﻿using LandsatReflectance.SceneBoundaries;
 using LandsatReflectance.UI.Components;
 using LandsatReflectance.UI.Exceptions;
+using LandsatReflectance.UI.Models;
 using LandsatReflectance.UI.Services;
 using LandsatReflectance.UI.Utils;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using MudBlazor;
+using Serilog;
 
 namespace LandsatReflectance.UI.Layout;
 
 public partial class MainLayout : LayoutComponentBase
 {
     [Inject]
+    public required ILogger<MainLayout> Logger { get; set; }
+    
+    [Inject]
     public required IWebAssemblyHostEnvironment Environment { get; set; }
+    
+    [Inject]
+    public required IDialogService DialogService { get; set; }
     
     [Inject]
     public required ISnackbar Snackbar { get; set; }
@@ -24,13 +32,17 @@ public partial class MainLayout : LayoutComponentBase
     public required CurrentUserService CurrentUserService { get; set; }
     
     [Inject]
+    public required CurrentTargetsService CurrentTargetsService { get; set; }
+    
+    [Inject]
     public required Wrs2AreasService Wrs2AreasService { get; set; }
-    
-    
-    private FullPageLoadingOverlay m_fullPageLoadingOverlay = new();
-    
-    
 
+    
+    private bool _isDialogVisible;
+    
+    private FullPageLoadingOverlay _fullPageLoadingOverlay = new();
+    
+    
     protected override async Task OnInitializedAsync()
     {
         if (!CurrentUserService.IsAuthenticated)
@@ -59,6 +71,18 @@ public partial class MainLayout : LayoutComponentBase
             }
         }
     }
+    
+    protected override void OnParametersSet()
+    {
+        CurrentUserService.OnUserAuthenticated += PromptToSaveUnregisteredTargets;
+    }
+    
+    protected void Dispose()
+    {
+        #nullable disable
+        CurrentUserService.OnUserAuthenticated -= PromptToSaveUnregisteredTargets;
+        #nullable enable
+    }
 
     
     public string DarkLightModeButtonIcon =>
@@ -77,5 +101,14 @@ public partial class MainLayout : LayoutComponentBase
     public void DarkModeToggle()
     {
         UiService.IsDarkMode = !UiService.IsDarkMode;
+    }
+    
+    
+    private async void PromptToSaveUnregisteredTargets(object? sender, EventArgs args)
+    {
+        Logger.LogInformation("tryna save?");
+
+        _isDialogVisible = true;
+        StateHasChanged();
     }
 }
