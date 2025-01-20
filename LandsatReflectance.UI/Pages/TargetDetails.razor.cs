@@ -1,6 +1,9 @@
-﻿using Blazored.LocalStorage;
+﻿using System.Diagnostics;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using Blazored.SessionStorage;
 using LandsatReflectance.SceneBoundaries;
+using LandsatReflectance.UI.Components;
 using LandsatReflectance.UI.Models;
 using LandsatReflectance.UI.Services;
 using LandsatReflectance.UI.Services.Api;
@@ -12,10 +15,16 @@ namespace LandsatReflectance.UI.Pages;
 public partial class TargetDetails : ComponentBase
 {
     [Inject]
+    public required ILogger<TargetDetails> Logger { get; set; }
+    
+    [Inject]
     public required IWebAssemblyHostEnvironment Environment { get; set; }
     
     [Inject]
     public required HttpClient HttpClient { get; set; }
+    
+    [Inject]
+    public required JsonSerializerOptions JsonSerializerOptions { get; set; }
     
     [Inject]
     public required NavigationManager NavigationManager { get; set; }
@@ -36,21 +45,50 @@ public partial class TargetDetails : ComponentBase
     public required CurrentTargetsService CurrentTargetsService { get; set; }
 
     
+    [CascadingParameter]
+    public required FullPageLoadingOverlay FullPageLoadingOverlay { get; set; }
+    
     [Parameter]
     [SupplyParameterFromQuery(Name = "target-id")]
     public string? TargetId { get; set; }
+    
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "path")]
+    public string? Path { get; set; }
+    
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "row")]
+    public string? Row { get; set; }
+    
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "latitude")]
+    public string? Latitude { get; set; }
+    
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "longitude")]
+    public string? Longitude { get; set; }
+    
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "min-cc-filter")]
+    public string? MinCloudCoverFilter { get; set; }
+    
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "max-cc-filter")]
+    public string? MaxCloudCoverFilter { get; set; }
 
+    
     private bool _isLoading = true;
+    private string? _loadingMsg = "Loading Images ...";
+    
     private bool _showQuickSummary;
     private bool _showImageLoadingDelayWarning = true;
-    private bool _isLoadingLocation;
     
     private Target? _target;
     private string? _errorMsg;
 
-    private int _currentSceneIndex = 0;
-    private List<SceneData> _sceneDatas = new();
-        private LocationData? _locationData = null;
+    private int _currentSceneIndex;
+    private LocationData? _locationData;
+    private Dictionary<SceneData, string> _sceneDataToImgStrMap = new();
 
     // Zoom style value in %
     private double _imageZoom = 33.3;
@@ -75,7 +113,13 @@ public partial class TargetDetails : ComponentBase
         if (isFirstRender)
         {
             TryInitTarget();
-            await TryGetSceneData();
+            var sceneDatas = await TryGetSceneData();
+            
+            _loadingMsg = "Caching Images ...";
+            StateHasChanged();
+            
+            _sceneDataToImgStrMap = await GetSceneToImgStrMap(sceneDatas);
+            
             _isLoading = false;
             StateHasChanged();
             
@@ -96,40 +140,122 @@ public partial class TargetDetails : ComponentBase
     
     private void TryInitTarget()
     {
-        if (TargetId is null)
+        if (Path is null)
         {
-            _errorMsg = "A \"target-id\" is not provided.";
+            _errorMsg = "The parameter \"path\" is missing.";
+            return;
+        }
+        if (!int.TryParse(Path, out var path))
+        {
+            _errorMsg = $"Could not parse the value \"{Path}\" for \"path\". Ensure that it is a valid integer.";
             return;
         }
         
-        if (!Guid.TryParse(TargetId, out Guid asGuid))
+        
+        if (Row is null)
         {
-            _errorMsg = $"There was an error parsing the string \"{TargetId}\" into a GUID.";
+            _errorMsg = "The parameter \"row\" is missing.";
+            return;
+        }
+        if (!int.TryParse(Row, out var row))
+        {
+            _errorMsg = $"Could not parse the value \"{Row}\" for \"row\". Ensure that it is a valid integer.";
             return;
         }
         
-        _target = CurrentTargetsService.RegisteredTargets.FirstOrDefault(target => target.Id == asGuid);
-        if (_target is null)
+        
+        if (Latitude is null)
         {
-            _errorMsg = $"Could not find a target with the id \"{asGuid}\".";
+            _errorMsg = "The parameter \"latitude\" is missing.";
+            return;
         }
+        if (!double.TryParse(Latitude, out var latitude))
+        {
+            _errorMsg = $"Could not parse the value \"{Latitude}\" for \"latitude\". Ensure that it is a valid double.";
+            return;
+        }
+        
+        
+        if (Longitude is null)
+        {
+            _errorMsg = "The parameter \"longitude\" is missing.";
+            return;
+        }
+        if (!double.TryParse(Longitude, out var longitude))
+        {
+            _errorMsg = $"Could not parse the value \"{Longitude}\" for \"longitude\". Ensure that it is a valid double.";
+            return;
+        }
+        
+        
+        if (MinCloudCoverFilter is null)
+        {
+            _errorMsg = "The parameter \"min-cc-filter\" is missing.";
+            return;
+        }
+        if (!double.TryParse(MinCloudCoverFilter, out var minCloudCoverFilter))
+        {
+            _errorMsg = $"Could not parse the value \"{MinCloudCoverFilter}\" for \"min-cc-filter\". Ensure that it is a valid double.";
+            return;
+        }
+        
+        
+        if (MaxCloudCoverFilter is null)
+        {
+            _errorMsg = "The parameter \"max-cc-filter\" is missing.";
+            return;
+        }
+        if (!double.TryParse(MaxCloudCoverFilter, out var maxCloudCoverFilter))
+        {
+            _errorMsg = $"Could not parse the value \"{MaxCloudCoverFilter}\" for \"max-cc-filter\". Ensure that it is a valid double.";
+            return;
+        }
+
+        var targetId = Guid.Empty;
+        if (TargetId is not null)
+        {
+            if (!Guid.TryParse(TargetId, out var asGuid))
+            {
+                _errorMsg = $"Could not parse \"{TargetId}\" as guid.";
+                return;
+            }
+
+            targetId = asGuid;
+        }
+
+        _target = new Target
+        {
+            Id = targetId,
+            Path = path,
+            Row = row,
+            Latitude = latitude,
+            Longitude = longitude,
+            MinCloudCoverFilter = minCloudCoverFilter,
+            MaxCloudCoverFilter = maxCloudCoverFilter,
+        };
     }
 
-    private async Task TryGetSceneData()
+    private async Task<List<SceneData>> TryGetSceneData()
     {
         if (_target is null)
         {
-            return;
+            return new();
         }
-
-        if (!CurrentUserService.IsAuthenticated)
+        
+        var targetKey = HashTarget(_target);
+        SceneData[] sceneDatas;
+        if (SessionStorageService.ContainKey(targetKey))
         {
-            _errorMsg = "You need to be authenticated.";
-            return;
+            await Task.Delay(TimeSpan.FromSeconds(0.1));  // Delay required because page loads too fast ???
+            sceneDatas = SessionStorageService.GetItem<SceneData[]>(targetKey);
         }
-
-        var sceneDatas = await ApiTargetService.TryGetSceneData(CurrentUserService.AccessToken, _target.Path, _target.Row, 10);
-        _sceneDatas = sceneDatas.OrderByDescending(sceneData => sceneData.PublishDate).ToList();
+        else
+        {
+            sceneDatas = await ApiTargetService.TryGetSceneData(_target.Path, _target.Row, 10);
+            SessionStorageService.SetItem(targetKey, sceneDatas);
+        }
+        
+        return sceneDatas.OrderByDescending(sceneData => sceneData.PublishDate).ToList();
     }
 
     private async void TryGetLocation()
@@ -138,13 +264,8 @@ public partial class TargetDetails : ComponentBase
         {
             try
             {
-                _isLoadingLocation = true;
-                StateHasChanged();
-                
                 var asLatLong = new LatLong((float)_target.Latitude, (float)_target.Longitude);
                 _locationData = await GeocodingService.GetNearestCity(asLatLong);
-                
-                _isLoadingLocation = false;
                 StateHasChanged();
             }
             catch (Exception)
@@ -154,18 +275,77 @@ public partial class TargetDetails : ComponentBase
         }
     }
 
-    private async void AddScenesToSessionStorage(IEnumerable<SceneData> sceneDatas)
+    private async Task<Dictionary<SceneData, string>> GetSceneToImgStrMap(List<SceneData> sceneDatas)
     {
+        var tasks = new List<Task<string?>>();
+        
         foreach (var sceneData in sceneDatas)
         {
-            if (sceneData.BrowsePath is not null && !SessionStorageService.ContainKey(GetBrowsePathString(sceneData)))
+            var sessionStorageKey = HashBrowsePath(sceneData);
+            if (sceneData.BrowsePath is not null)
             {
-                var imgBytes = await HttpClient.GetByteArrayAsync(sceneData.BrowsePath);
-                var asBase64String = Convert.ToBase64String(imgBytes);
-                SessionStorageService.SetItem(GetBrowsePathString(sceneData), asBase64String);
+                if (SessionStorageService.ContainKey(sessionStorageKey))
+                {
+                    var value = SessionStorageService.GetItem<string?>(sessionStorageKey);
+                    tasks.Add(Task.FromResult(value));
+                }
+                else
+                {
+                    tasks.Add(GetSceneImgDataString(sceneData));
+                }
             }
         }
+
+        var stopwatch = new Stopwatch();
+        stopwatch.Start();
+        
+        var imgDataStrsNullable = await Task.WhenAll(tasks);
+        var imgDataStrs = sceneDatas
+            .Zip(imgDataStrsNullable)
+            .Where(tuple => tuple.Second is not null)
+            .ToDictionary(tuple => tuple.First, tuple => tuple.Second!);
+        
+        stopwatch.Stop();
+        if (!Environment.IsProduction())
+        {
+            Logger.LogInformation($"{stopwatch.Elapsed:g}");
+        }
+
+        return imgDataStrs;
     }
 
-    private static string GetBrowsePathString(SceneData sceneData) => $"browse-path:{sceneData.EntityId}";
+    private async Task<string?> GetSceneImgDataString(SceneData sceneData)
+    {
+        const string regexPattern = "product_id=([\\w\\s]+)";
+        var match = Regex.Match(sceneData.BrowsePath!, regexPattern);
+
+        if (match.Success && match.Groups.Count != 0)
+        {
+            var productId = match.Groups[1].Value;
+            var response = await HttpClient.GetAsync($"scene-data-str?product-id={productId}");
+            var responseBody = await response.Content.ReadAsStringAsync();
+            var apiResponse = JsonSerializer.Deserialize<ApiResponse<string>>(responseBody, JsonSerializerOptions);
+
+            if (apiResponse is null)
+            {
+                return null;
+            }
+
+            if (apiResponse.ErrorMessage is not null)
+            {
+                return null;
+            }
+
+            var dataStr = apiResponse.Data;
+            SessionStorageService.SetItem(HashBrowsePath(sceneData), dataStr);
+            return dataStr;
+        }
+
+        return null;
+    }
+
+    
+    private static string HashBrowsePath(SceneData sceneData) => $"browse-path:{sceneData.EntityId}";
+    
+    private static string HashTarget(Target target) => $"target-details:{target.Id}";
 }

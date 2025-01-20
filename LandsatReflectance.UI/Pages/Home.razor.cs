@@ -207,7 +207,6 @@ public partial class Home : ComponentBase
         try
         {
             var sceneDataArr = await ApiTargetService.TryGetSceneData(
-                CurrentUserService.AccessToken, 
                 target.Path,
                 target.Row, 
                 2);
@@ -293,6 +292,27 @@ public partial class Home : ComponentBase
             FullPageLoadingOverlay.ClearOverlayMessage();
             FullPageLoadingOverlay.Hide();
         }
+    }
+
+    private void NavigateToDetailedView(Target target)
+    {
+        List<string> queryParameters =
+        [
+            $"path={target.Path}",
+            $"row={target.Row}",
+            $"latitude={target.Latitude}",
+            $"longitude={target.Longitude}",
+            $"min-cc-filter={target.MinCloudCoverFilter}",
+            $"max-cc-filter={target.MaxCloudCoverFilter}",
+        ];
+
+        if (target.Id != Guid.Empty)
+        {
+            queryParameters.Add($"target-id={target.Id}");
+        }
+
+        var asQueryParametersUrl = string.Join("&", queryParameters);
+        NavigationManager.NavigateTo($"TargetDetails?{asQueryParametersUrl}");
     }
 
     private static string FormatCoordinates(double latitude, double longitude) =>

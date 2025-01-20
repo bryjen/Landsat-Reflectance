@@ -5,43 +5,64 @@
 *@
 
 <div class="flex flex-col pa-4">
-    <div class="flex items-center justify-between">
-        <MudButton StartIcon="@Icons.Material.Filled.ArrowLeft"
-                   Variant="@Variant.Outlined"
-                   Size="@Size.Small"
-                   OnClick="@(_ => NavigationManager.NavigateTo("/"))"
-                   >
-            Home
-        </MudButton>
-    </div>
-    
-    <MudTabs Position="@Position.Top"
-             Outlined
-             Rounded
-             Border
-             ApplyEffectsToContainer
-             Class="mt-8 min-h-[75vh]"
-             PanelClass="pa-6">
-
-        <MudTabPanel Icon="@Icons.Material.Filled.Map" Text="Overview">
-            @RenderOverviewTab
-        </MudTabPanel>
-
-        <MudTabPanel Icon="@Icons.Material.Filled.ZoomInMap" Text="Pixels">
-            <div class="flex items-center justify-center w-full h-full">
-                <p>Content 1</p>
-            </div>
-        </MudTabPanel>
-    </MudTabs>
-
-    <div>
-
-    </div>
+    @if (_errorMsg is not null && !string.IsNullOrWhiteSpace(_errorMsg))
+    {
+        @RenderErrorMsg
+    }
+    else
+    {
+        @RenderNormalView
+    }
 </div>
 
 
 
 @code {
+
+@* ReSharper disable UnusedParameter.Local *@
+    private RenderFragment RenderErrorMsg => __builder =>
+@* ReSharper restore UnusedParameter.Local *@
+    {
+        <MudAlert Severity="@Severity.Error">
+            @_errorMsg
+        </MudAlert>
+    };
+    
+
+@* ReSharper disable UnusedParameter.Local *@
+    // View rendered when no errors are present
+    private RenderFragment RenderNormalView => __builder =>
+@* ReSharper restore UnusedParameter.Local *@
+    {
+        <div class="flex items-center justify-between">
+            <MudButton StartIcon="@Icons.Material.Filled.ArrowLeft"
+                       Variant="@Variant.Outlined"
+                       Size="@Size.Small"
+                       OnClick="@(_ => NavigationManager.NavigateTo("/"))"
+            >
+                Home
+            </MudButton>
+        </div>
+
+        <MudTabs Position="@Position.Top"
+                 Outlined
+                 Rounded
+                 Border
+                 ApplyEffectsToContainer
+                 Class="mt-8 min-h-[75vh]"
+                 PanelClass="pa-6">
+
+            <MudTabPanel Icon="@Icons.Material.Filled.Map" Text="Overview">
+                @RenderOverviewTab
+            </MudTabPanel>
+
+            <MudTabPanel Icon="@Icons.Material.Filled.ZoomInMap" Text="Pixels">
+                <div class="flex items-center justify-center w-full h-full">
+                    <p>Content 1</p>
+                </div>
+            </MudTabPanel>
+        </MudTabs>
+    };
 
 @* ReSharper disable UnusedParameter.Local *@
     private RenderFragment RenderOverviewTab => __builder =>
@@ -52,11 +73,11 @@
             {
                 <MudProgressCircular Indeterminate Size="Size.Large" Color="Color.Primary"/>
                 <p class="font-bold text-xl text-white">
-                    Loading Image ...
+                    @_loadingMsg
                 </p>
             }
 
-            @if (_sceneDatas.Count > 0)
+            @if (_sceneDataToImgStrMap.Count > 0)
             {
                 var imageStyles = new StyleBuilder()
                     .AddStyle($"width: {_imageZoom}%")
@@ -64,13 +85,15 @@
                 
                 @RenderControlPanelOverlay
 
+                @*
                 <img id="SceneImage" alt="image" src="@(_sceneDatas[_currentSceneIndex].BrowsePath)"
                      class="" style="@imageStyles"/>
-            @*
-                var alt = $"data:image/png;base64,{TestDataStr}";
+*@
+
+                var base64Str = _sceneDataToImgStrMap.Values.ToArray()[_currentSceneIndex];
+                var alt = $"data:image/png;base64,{base64Str}";
                 <img id="SceneImage" alt="image" src="@alt"
                      class="" style="@imageStyles"/>
-*@
             }
         </div>
     };
@@ -108,12 +131,12 @@
                 <MudIconButton Icon="@Icons.Material.Filled.ArrowRight"
                                Variant="@Variant.Outlined"
                                Size="@Size.Small"
-                               Disabled="@(_currentSceneIndex >= _sceneDatas.Count - 1)"
+                               Disabled="@(_currentSceneIndex >= _sceneDataToImgStrMap.Count - 1)"
                                OnClick="@(_ => { _currentSceneIndex++; _showImageLoadingDelayWarning = false; })"
                 />
 
                 <p class="select-none">
-                    @(new MarkupString($"<b>Current Image</b>: {_currentSceneIndex + 1}/{_sceneDatas.Count}"))
+                    @(new MarkupString($"<b>Current Image</b>: {_currentSceneIndex + 1}/{_sceneDataToImgStrMap.Count}"))
                 </p>
             </div>
             
@@ -126,7 +149,7 @@
 
             @if (_target is not null)
             {
-                var currentScene = _sceneDatas[_currentSceneIndex];
+                var currentScene = _sceneDataToImgStrMap.Keys.ToArray()[_currentSceneIndex];
                 
                 <MudButton Size="Size.Small"
                            OnClick="@(_ => _showQuickSummary = !_showQuickSummary)">

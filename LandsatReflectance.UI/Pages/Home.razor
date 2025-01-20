@@ -130,7 +130,7 @@ else
             
             <div class="flex flex-shrink-0 text-right gap-2">
                 <MudButton Variant="@Variant.Outlined" Size="@Size.Small"
-                           OnClick="@(_ => NavigationManager.NavigateTo($"TargetDetails?target-id={target.Id}"))">
+                           OnClick="@(_ => NavigateToDetailedView(target))">
                     View Detailed
                 </MudButton>
                 
