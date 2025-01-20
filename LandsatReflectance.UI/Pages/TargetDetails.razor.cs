@@ -93,6 +93,18 @@ public partial class TargetDetails : ComponentBase
     // Zoom style value in %
     private double _imageZoom = 33.3;
 
+    protected override void OnInitialized()
+    {
+        // Clear the cache of any previous images.
+        // Should prevent memory exceeding that of the max/quota.
+        foreach (var key in SessionStorageService.Keys())
+        {
+            if (key.StartsWith("browse-path:"))
+            {
+                SessionStorageService.RemoveItem(key);
+            }
+        }
+    }
 
     protected override void OnParametersSet()
     {
