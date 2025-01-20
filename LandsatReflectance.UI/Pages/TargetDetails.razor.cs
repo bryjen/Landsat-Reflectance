@@ -48,10 +48,33 @@ public partial class TargetDetails : ComponentBase
     [CascadingParameter]
     public required FullPageLoadingOverlay FullPageLoadingOverlay { get; set; }
     
-    
     [Parameter]
     [SupplyParameterFromQuery(Name = "target-id")]
     public string? TargetId { get; set; }
+    
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "path")]
+    public string? Path { get; set; }
+    
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "row")]
+    public string? Row { get; set; }
+    
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "latitude")]
+    public string? Latitude { get; set; }
+    
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "longitude")]
+    public string? Longitude { get; set; }
+    
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "min-cc-filter")]
+    public string? MinCloudCoverFilter { get; set; }
+    
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "max-cc-filter")]
+    public string? MaxCloudCoverFilter { get; set; }
 
     
     private bool _isLoading = true;
@@ -117,23 +140,99 @@ public partial class TargetDetails : ComponentBase
     
     private void TryInitTarget()
     {
-        if (TargetId is null)
+        if (Path is null)
         {
-            _errorMsg = "A \"target-id\" is not provided.";
+            _errorMsg = "The parameter \"path\" is missing.";
+            return;
+        }
+        if (!int.TryParse(Path, out var path))
+        {
+            _errorMsg = $"Could not parse the value \"{Path}\" for \"path\". Ensure that it is a valid integer.";
             return;
         }
         
-        if (!Guid.TryParse(TargetId, out Guid asGuid))
+        
+        if (Row is null)
         {
-            _errorMsg = $"There was an error parsing the string \"{TargetId}\" into a GUID.";
+            _errorMsg = "The parameter \"row\" is missing.";
+            return;
+        }
+        if (!int.TryParse(Row, out var row))
+        {
+            _errorMsg = $"Could not parse the value \"{Row}\" for \"row\". Ensure that it is a valid integer.";
             return;
         }
         
-        _target = CurrentTargetsService.RegisteredTargets.FirstOrDefault(target => target.Id == asGuid);
-        if (_target is null)
+        
+        if (Latitude is null)
         {
-            _errorMsg = $"Could not find a target with the id \"{asGuid}\".";
+            _errorMsg = "The parameter \"latitude\" is missing.";
+            return;
         }
+        if (!double.TryParse(Latitude, out var latitude))
+        {
+            _errorMsg = $"Could not parse the value \"{Latitude}\" for \"latitude\". Ensure that it is a valid double.";
+            return;
+        }
+        
+        
+        if (Longitude is null)
+        {
+            _errorMsg = "The parameter \"longitude\" is missing.";
+            return;
+        }
+        if (!double.TryParse(Longitude, out var longitude))
+        {
+            _errorMsg = $"Could not parse the value \"{Longitude}\" for \"longitude\". Ensure that it is a valid double.";
+            return;
+        }
+        
+        
+        if (MinCloudCoverFilter is null)
+        {
+            _errorMsg = "The parameter \"min-cc-filter\" is missing.";
+            return;
+        }
+        if (!double.TryParse(MinCloudCoverFilter, out var minCloudCoverFilter))
+        {
+            _errorMsg = $"Could not parse the value \"{MinCloudCoverFilter}\" for \"min-cc-filter\". Ensure that it is a valid double.";
+            return;
+        }
+        
+        
+        if (MaxCloudCoverFilter is null)
+        {
+            _errorMsg = "The parameter \"max-cc-filter\" is missing.";
+            return;
+        }
+        if (!double.TryParse(MaxCloudCoverFilter, out var maxCloudCoverFilter))
+        {
+            _errorMsg = $"Could not parse the value \"{MaxCloudCoverFilter}\" for \"max-cc-filter\". Ensure that it is a valid double.";
+            return;
+        }
+
+        var targetId = Guid.Empty;
+        if (TargetId is not null)
+        {
+            if (!Guid.TryParse(TargetId, out var asGuid))
+            {
+                _errorMsg = $"Could not parse \"{TargetId}\" as guid.";
+                return;
+            }
+
+            targetId = asGuid;
+        }
+
+        _target = new Target
+        {
+            Id = targetId,
+            Path = path,
+            Row = row,
+            Latitude = latitude,
+            Longitude = longitude,
+            MinCloudCoverFilter = minCloudCoverFilter,
+            MaxCloudCoverFilter = maxCloudCoverFilter,
+        };
     }
 
     private async Task<List<SceneData>> TryGetSceneData()
@@ -142,13 +241,7 @@ public partial class TargetDetails : ComponentBase
         {
             return new();
         }
-
-        if (!CurrentUserService.IsAuthenticated)
-        {
-            _errorMsg = "You need to be authenticated.";
-            return new();
-        }
-
+        
         var targetKey = HashTarget(_target);
         SceneData[] sceneDatas;
         if (SessionStorageService.ContainKey(targetKey))
@@ -158,7 +251,7 @@ public partial class TargetDetails : ComponentBase
         }
         else
         {
-            sceneDatas = await ApiTargetService.TryGetSceneData(CurrentUserService.AccessToken, _target.Path, _target.Row, 10);
+            sceneDatas = await ApiTargetService.TryGetSceneData(_target.Path, _target.Row, 10);
             SessionStorageService.SetItem(targetKey, sceneDatas);
         }
         

@@ -5,43 +5,64 @@
 *@
 
 <div class="flex flex-col pa-4">
-    <div class="flex items-center justify-between">
-        <MudButton StartIcon="@Icons.Material.Filled.ArrowLeft"
-                   Variant="@Variant.Outlined"
-                   Size="@Size.Small"
-                   OnClick="@(_ => NavigationManager.NavigateTo("/"))"
-                   >
-            Home
-        </MudButton>
-    </div>
-    
-    <MudTabs Position="@Position.Top"
-             Outlined
-             Rounded
-             Border
-             ApplyEffectsToContainer
-             Class="mt-8 min-h-[75vh]"
-             PanelClass="pa-6">
-
-        <MudTabPanel Icon="@Icons.Material.Filled.Map" Text="Overview">
-            @RenderOverviewTab
-        </MudTabPanel>
-
-        <MudTabPanel Icon="@Icons.Material.Filled.ZoomInMap" Text="Pixels">
-            <div class="flex items-center justify-center w-full h-full">
-                <p>Content 1</p>
-            </div>
-        </MudTabPanel>
-    </MudTabs>
-
-    <div>
-
-    </div>
+    @if (_errorMsg is not null && !string.IsNullOrWhiteSpace(_errorMsg))
+    {
+        @RenderErrorMsg
+    }
+    else
+    {
+        @RenderNormalView
+    }
 </div>
 
 
 
 @code {
+
+@* ReSharper disable UnusedParameter.Local *@
+    private RenderFragment RenderErrorMsg => __builder =>
+@* ReSharper restore UnusedParameter.Local *@
+    {
+        <MudAlert Severity="@Severity.Error">
+            @_errorMsg
+        </MudAlert>
+    };
+    
+
+@* ReSharper disable UnusedParameter.Local *@
+    // View rendered when no errors are present
+    private RenderFragment RenderNormalView => __builder =>
+@* ReSharper restore UnusedParameter.Local *@
+    {
+        <div class="flex items-center justify-between">
+            <MudButton StartIcon="@Icons.Material.Filled.ArrowLeft"
+                       Variant="@Variant.Outlined"
+                       Size="@Size.Small"
+                       OnClick="@(_ => NavigationManager.NavigateTo("/"))"
+            >
+                Home
+            </MudButton>
+        </div>
+
+        <MudTabs Position="@Position.Top"
+                 Outlined
+                 Rounded
+                 Border
+                 ApplyEffectsToContainer
+                 Class="mt-8 min-h-[75vh]"
+                 PanelClass="pa-6">
+
+            <MudTabPanel Icon="@Icons.Material.Filled.Map" Text="Overview">
+                @RenderOverviewTab
+            </MudTabPanel>
+
+            <MudTabPanel Icon="@Icons.Material.Filled.ZoomInMap" Text="Pixels">
+                <div class="flex items-center justify-center w-full h-full">
+                    <p>Content 1</p>
+                </div>
+            </MudTabPanel>
+        </MudTabs>
+    };
 
 @* ReSharper disable UnusedParameter.Local *@
     private RenderFragment RenderOverviewTab => __builder =>

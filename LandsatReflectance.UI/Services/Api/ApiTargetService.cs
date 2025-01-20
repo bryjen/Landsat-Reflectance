@@ -26,14 +26,12 @@ public class ApiTargetService
     }
 
     public async Task<SceneData[]> TryGetSceneData(
-        string authToken, 
         int path, 
         int row, 
         int results, 
         CancellationToken? cancellationToken = null)
     {
         cancellationToken ??= CancellationToken.None;
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
 
         var response = await _httpClient.GetAsync($"scene?path={path}&row={row}&results={results}", cancellationToken.Value);
 
