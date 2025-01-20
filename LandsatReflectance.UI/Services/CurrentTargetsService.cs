@@ -83,6 +83,19 @@ public class CurrentTargetsService
 
         return wasRemoved;
     }
+
+    public void ClearAllUnregisteredTargets()
+    {
+        UnregisteredTargets.Clear();
+        
+        foreach (var key in _localStorageService.Keys())
+        {
+            if (key.StartsWith("unregistered-target:"))
+            {
+                _localStorageService.RemoveItem(key);
+            }
+        }
+    }
     
 
     internal void SaveTargetsCreatedOffline(object? sender, AuthenticatedEventArgs authenticatedEventArgs)

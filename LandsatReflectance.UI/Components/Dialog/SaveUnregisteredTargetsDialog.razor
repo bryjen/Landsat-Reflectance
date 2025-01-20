@@ -1,4 +1,14 @@
-﻿<MudDialog>
+﻿<MudOverlay @bind-Visible="@_overlayVisible" DarkBackground Absolute>
+    <div class="flex flex-col items-center justify-center gap-4">
+        <MudProgressCircular Size="Size.Large" Color="@Color.Primary" Indeterminate="@true"></MudProgressCircular>
+
+        <p class="font-bold text-xl text-white">
+            Saving targets ...
+        </p>
+    </div>
+</MudOverlay>
+
+<MudDialog>
     <TitleContent>
         <p class="font-bold text-xl">
             You have unsaved targets
@@ -8,17 +18,13 @@
         Some targets were created when you were logged out. Do you want to save these targets to your account?
     </DialogContent>
     <DialogActions>
-        <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save">
+        <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save"
+                   OnClick="@SaveUnregisteredTargets">
             Save
         </MudButton>
-        <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Error">
+        <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Error"
+                   OnClick="@(_ => MudDialog.Close())">
             Leave As Is
         </MudButton>
     </DialogActions>
 </MudDialog>
-
-@code
-{
-    [CascadingParameter] 
-    private MudDialogInstance MudDialog { get; set; } = null!;
-}

@@ -1,5 +1,6 @@
 ﻿using LandsatReflectance.SceneBoundaries;
 using LandsatReflectance.UI.Components;
+using LandsatReflectance.UI.Components.Dialog;
 using LandsatReflectance.UI.Exceptions;
 using LandsatReflectance.UI.Models;
 using LandsatReflectance.UI.Services;
@@ -37,8 +38,9 @@ public partial class MainLayout : LayoutComponentBase
     [Inject]
     public required Wrs2AreasService Wrs2AreasService { get; set; }
 
-    
-    private bool _isDialogVisible;
+    // Flag to prevent the dialog from being displayed multiple times on top of each other.
+    // Unknown what causes this.
+    private bool _wasSaveUnregisteredTargetsDialogDisplayed;
     
     private FullPageLoadingOverlay _fullPageLoadingOverlay = new();
     
@@ -106,9 +108,18 @@ public partial class MainLayout : LayoutComponentBase
     
     private async void PromptToSaveUnregisteredTargets(object? sender, EventArgs args)
     {
-        Logger.LogInformation("tryna save?");
-
-        _isDialogVisible = true;
-        StateHasChanged();
+        if (CurrentTargetsService.UnregisteredTargets.Count == 0)
+        {
+            return;
+        }
+        
+        if (!_wasSaveUnregisteredTargetsDialogDisplayed)
+        {
+            _wasSaveUnregisteredTargetsDialogDisplayed = true;
+            
+            await Task.Delay(TimeSpan.FromSeconds(1.5));
+            await DialogService.ShowAsync<SaveUnregisteredTargetsDialog>();
+            StateHasChanged();
+        }
     }
 }
