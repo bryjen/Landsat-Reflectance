@@ -267,7 +267,7 @@ public partial class DetailedView : ComponentBase
             SessionStorageService.SetItem(targetKey, sceneDatas);
         }
         
-        return sceneDatas.OrderByDescending(sceneData => sceneData.PublishDate).ToList();
+        return sceneDatas.OrderByDescending(sceneData => sceneData.Metadata.PublishDate).ToList();
     }
 
     private async void TryGetLocation()
@@ -357,7 +357,7 @@ public partial class DetailedView : ComponentBase
     }
 
     
-    private static string HashBrowsePath(SceneData sceneData) => $"browse-path:{sceneData.EntityId}";
+    private static string HashBrowsePath(SceneData sceneData) => $"browse-path:{sceneData.Metadata.EntityId}";
     
     private static string HashTarget(Target target) => $"target-details:{target.Id};{target.Latitude};{target.Longitude}";
 }
