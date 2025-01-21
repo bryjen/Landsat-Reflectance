@@ -5,8 +5,8 @@ open System.IO
 open System.Text
 open System.Net.Http
 
+open System.Text.Json
 open FsToolkit.ErrorHandling
-open FsToolkit.ErrorHandling.Operator.TaskResult
 open Microsoft.FSharp.Control
 
 open LandsatReflectance.Api.Models.Usgs.Scene
@@ -16,26 +16,58 @@ open LandsatReflectance.Api.Services.UsgsTokenService
 
 
 
-let simplifySceneData (sceneData: SceneData) =
+let rec simplifySceneData (sceneData: SceneData) =
     match Array.tryHead sceneData.BrowseInfos with
     | None ->
           { BrowseName = None
             BrowsePath = None
             OverlayPath = None
             ThumbnailPath = None
-            
-            EntityId = sceneData.EntityId
-            DisplayId = sceneData.DisplayId
-            PublishDate = sceneData.PublishDate }
+            Metadata = simplifyMetadata sceneData }
     | Some value -> 
           { BrowseName = Some value.BrowseName
             BrowsePath = Some value.BrowsePath
             OverlayPath = Some value.OverlayPath
             ThumbnailPath = Some value.ThumbnailPath
-            
-            EntityId = sceneData.EntityId
-            DisplayId = sceneData.DisplayId
-            PublishDate = sceneData.PublishDate }
+            Metadata = simplifyMetadata sceneData }
+          
+          
+and simplifyMetadata (sceneData: SceneData) =
+    let metadataMap =
+        sceneData.Metadata 
+        |> Array.map (fun metadata -> (metadata.FieldName, metadata.Value))
+        |> Map.ofArray
+        
+    let l1ProductIdOption =
+        Map.tryFind "Landsat Product Identifier L1" metadataMap
+        |> Option.bind (fun jsonElement -> match jsonElement.ValueKind with | JsonValueKind.String -> Some (jsonElement.GetString()) | _ -> None)
+        |> Option.map _.Trim()
+        
+    let l2ProductIdOption =
+        Map.tryFind "Landsat Product Identifier L2" metadataMap
+        |> Option.bind (fun jsonElement -> match jsonElement.ValueKind with | JsonValueKind.String -> Some (jsonElement.GetString()) | _ -> None)
+        |> Option.map _.Trim()
+        
+    let l1CloudCoverOption =
+        Map.tryFind "Scene Cloud Cover L1" metadataMap
+        |> Option.bind (fun jsonElement -> match jsonElement.ValueKind with | JsonValueKind.String -> Some (jsonElement.GetString()) | _ -> None)
+        |> Option.map _.Trim()
+        |> Option.bind (fun str -> try Some (float str) with | _ -> None)
+        
+    let satelliteOption =
+        Map.tryFind "Satellite" metadataMap
+        |> Option.bind (fun jsonElement -> match jsonElement.ValueKind with | JsonValueKind.Number -> Some jsonElement | _ -> None)
+        |> Option.bind (fun jsonElement -> match jsonElement.TryGetInt32() with | true, i -> Some i | _ -> None) 
+        
+    
+    { EntityId = sceneData.EntityId
+      DisplayId = sceneData.DisplayId
+      PublishDate = sceneData.PublishDate
+      
+      L1ProductId = l1ProductIdOption
+      L2ProductId = l2ProductIdOption
+      L1CloudCover = l1CloudCoverOption
+      Satellite = satelliteOption }
 
 
 type UsgsSceneService(

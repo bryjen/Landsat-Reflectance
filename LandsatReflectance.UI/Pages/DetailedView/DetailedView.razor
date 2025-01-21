@@ -69,12 +69,12 @@ else
 
                         <div class="flex flex-col justify-center items-center w-max">
                             <p class="text-xs font-bold select-none">Entity ID:</p>
-                            <p class="text-sm select-none">@(currentScene.EntityId)</p>
+                            <p class="text-sm select-none">@(currentScene.Metadata.EntityId)</p>
                         </div>
 
                         <div class="flex flex-col justify-center items-center w-max">
                             <p class="text-xs font-bold select-none">Publish Date:</p>
-                            <p class="text-sm select-none">@(currentScene.PublishDate.ToString("G"))</p>
+                            <p class="text-sm select-none">@(currentScene.Metadata.PublishDate.ToString("G"))</p>
                         </div>
                     </div>
 
@@ -200,23 +200,23 @@ else
                 </div>
 
                 <div class="grid grid-cols-[30%_70%] gap-y-3">
-                    <p class="font-bold">Product Id:</p>
-                    <p>TODO</p>
-
-                    <p class="font-bold">Display Id:</p>
-                    <p>@currentScene.DisplayId</p>
+                    <p class="font-bold">L1 Product Id:</p>
+                    <p>@currentScene.Metadata.L1ProductId</p>
+                    
+                    <p class="font-bold">L2 Product Id:</p>
+                    <p>@currentScene.Metadata.L2ProductId</p>
 
                     <p class="font-bold">Entity Id:</p>
-                    <p>@currentScene.EntityId</p>
+                    <p>@currentScene.Metadata.EntityId</p>
 
                     <p class="font-bold">Publish Date:</p>
-                    <p>@(currentScene.PublishDate.ToString("G"))</p>
+                    <p>@(currentScene.Metadata.PublishDate.ToString("G"))</p>
 
                     <p class="font-bold">Landsat Satellite:</p>
-                    <p>TODO</p>
+                    <p>@currentScene.Metadata.Satellite</p>
 
                     <p class="font-bold">Cloud Cover:</p>
-                    <p>TODO</p>
+                    <p>@(currentScene.Metadata.L1CloudCover / 100)</p>  @* Usgs API returns values from 0 - 100 *@
                 </div>
             </div>
         </div>
