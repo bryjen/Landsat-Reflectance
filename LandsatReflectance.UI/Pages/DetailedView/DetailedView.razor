@@ -1,0 +1,225 @@
+﻿@page "/DetailedView"
+
+@if (_isLoading)
+{
+    var appBarHeightCss = "calc(var(--mud-appbar-height) - var(--mud-appbar-height) / 4)";
+    var pageHeightStyle = $"height: calc(100vh - {appBarHeightCss})";
+    
+    <div class="flex flex-col items-center justify-center gap-6" style="@pageHeightStyle">
+        <MudProgressCircular Indeterminate Color="@Color.Primary" />
+        <p>
+            @_loadingMsg
+        </p>
+    </div>
+}
+else
+{
+    @Render
+}
+
+
+
+@code {
+
+@* ReSharper disable UnusedParameter.Local *@
+    private RenderFragment Render => __builder =>
+@* ReSharper restore UnusedParameter.Local *@
+    {
+        var appBarHeightCss = "calc(var(--mud-appbar-height) - var(--mud-appbar-height) / 4)";
+        var pageHeightStyle = $"height: calc(100vh - {appBarHeightCss})";
+
+        <div class="flex px-8 py-4" style="@pageHeightStyle">
+            @RenderImagePanel
+            
+            @RenderStatsPanel
+            
+        </div>
+    };
+    
+    
+    
+@* ReSharper disable UnusedParameter.Local *@
+    private RenderFragment RenderImagePanel => __builder =>
+@* ReSharper restore UnusedParameter.Local *@
+    {
+        var currentScene = _sceneDataToImgStrMap.Keys.ToArray()[_currentSceneIndex];
+        var base64Str = _sceneDataToImgStrMap.Values.ToArray()[_currentSceneIndex];
+        var imgSrc = $"data:image/png;base64,{base64Str}";
+        
+        // var imgSrc = "https://landsatlook.usgs.gov/gen-browse?size=rrb&type=refl&product_id=LC08_L1TP_014028_20241021_20241029_02_T1";
+
+        <div class="flex flex-col gap-6 items-center justify-start w-full">
+
+            <div class="relative pa-2 w-5/12 bg-[#2a313c] rounded border border-[#353c44]">
+                <div class="flex items-center justify-between">
+                    <MudIconButton Icon="@Icons.Material.Filled.ArrowLeft"
+                                   Variant="@Variant.Filled"
+                                   Color="@Color.Primary"
+                                   Disabled="@(_currentSceneIndex <= 0)"
+                                   OnClick="@(_ => { _currentSceneIndex--; _showImageLoadingDelayWarning = false; })"
+                                   Class="select-none"
+                    />
+
+                    <div class="flex flex-col flex-grow gap-4 items-center justify-center px-4">
+
+                        <div class="flex flex-col justify-center items-center w-max">
+                            <p class="text-xs font-bold select-none">Displaying:</p>
+                            <p class="text-sm select-none">@($"{_currentSceneIndex + 1}/{_sceneDataToImgStrMap.Count}")</p>
+                        </div>
+
+                        <div class="flex flex-col justify-center items-center w-max">
+                            <p class="text-xs font-bold select-none">Entity ID:</p>
+                            <p class="text-sm select-none">@(currentScene.EntityId)</p>
+                        </div>
+
+                        <div class="flex flex-col justify-center items-center w-max">
+                            <p class="text-xs font-bold select-none">Publish Date:</p>
+                            <p class="text-sm select-none">@(currentScene.PublishDate.ToString("G"))</p>
+                        </div>
+                    </div>
+
+                    <MudIconButton Icon="@Icons.Material.Filled.ArrowRight"
+                                   Variant="@Variant.Filled"
+                                   Color="@Color.Primary"
+                                   Disabled="@(_currentSceneIndex >= _sceneDataToImgStrMap.Count - 1)"
+                                   OnClick="@(_ => { _currentSceneIndex++; _showImageLoadingDelayWarning = false; })"
+                                   Class="select-none"
+                    />
+
+                    <MudIconButton Icon="@Icons.Material.Filled.Settings"
+                                   Variant="Variant.Filled"
+                                   Size="@Size.Small"
+                                   Class="absolute top-2 right-2"
+                    />
+                </div>
+            </div>
+
+            <img src="@imgSrc" alt="alt" class="w-3/4 border border-[#353c44] select-none"/>
+        </div>
+    };
+    
+    
+@* ReSharper disable UnusedParameter.Local *@
+    private RenderFragment RenderStatsPanel => __builder =>
+@* ReSharper restore UnusedParameter.Local *@
+    {
+        <div class="flex flex-col gap-8 w-full pa-6 bg-[#2a313c] rounded border border-[#353c44] overflow-auto">
+
+            @if (_target is not null)
+            {
+            <div class="pa-4 bg-[#262c36] rounded border border-[#353c44]">
+                <div>
+                    <p class="text-xl font-bold text-center">
+                        Target Details
+                    </p>
+                </div>
+
+                @if (_target.Id == Guid.Empty)
+                {
+                <div class="flex gap-2 items-center justify-center">
+                    <MudIcon Size="@Size.Small" Color="@Color.Warning" Icon="@Icons.Material.Filled.Warning" />
+                    <p class="text-[#ffb545]">This target is unsaved. You cannot receive any notifications for this target.</p>
+                </div>
+                }
+
+                <MudDivider Class="my-2" Style="border-width: 2px; border-color: #353c44"/>
+
+                <div class="grid grid-cols-[30%_70%] gap-y-3">
+                    @if (_target.Id != Guid.Empty)
+                    {
+                        <p class="font-bold">Target ID:</p>
+                        <p class="">@(_target.Id)</p>
+                    }
+
+                    <p class="font-bold">Path, Row:</p>
+                    <p class="">@($"{_target.Path}, {_target.Row}")</p>
+
+                    <p class="font-bold">Lat, Long:</p>
+                    <p class="">@($"{_target.Latitude:F2}°N, {_target.Longitude:F2}°W")</p>
+
+                    @if (_target.Id != Guid.Empty)
+                    {
+                        <p class="font-bold">Cloud Cover Range:</p>
+                        <p class="">@($"{_target.MinCloudCoverFilter}; {_target.MaxCloudCoverFilter}")</p>
+                    }
+
+                    @if (_target.Id != Guid.Empty)
+                    {
+                        <p class="font-bold">Notification Offset:</p>
+                        <p class="">@($"{_target.NotificationOffset.Hours} Hour(s), {_target.NotificationOffset.Minutes} Minute(s), {_target.NotificationOffset.Seconds} Second(s)")</p>
+                    }
+                </div>
+            </div>
+            }
+
+
+            @* Prediction Data *@
+@*
+            <div class="pa-4 bg-[#262c36] rounded border border-[#353c44]">
+                <div>
+                    <p class="text-xl font-bold text-center">
+                        Prediction Data
+                    </p>
+                    <p class="text-xs text-center">
+                        Predictions are calculated in-house, and can be fairly inaccurate.
+                    </p>
+                    <MudDivider Class="my-2" Style="border-width: 2px; border-color: #353c44"/>
+                </div>
+                
+
+                <div class="grid grid-cols-[30%_70%] gap-y-3">
+                    <p class="font-bold">Next Publish (Predicted):</p>
+                    <p>Some Product ID</p>
+
+                    <p class="font-bold">Next Satellite:</p>
+                    <p>LC90280282025019LGN00</p>
+
+                    <p class="font-bold">Prediction Confidence:</p>
+                    <p>LC09_L2SP_201024_20250115_20250116_02_T2</p>
+
+                    <p class="font-bold">Publish Interval:</p>
+                    <p>2025/01/19</p>
+                </div>
+            </div>
+*@
+
+            @{
+                var currentScene = _sceneDataToImgStrMap.Keys.ToArray()[_currentSceneIndex];
+             }
+
+            @* Current Scene / Image Details *@
+            <div class="pa-4 bg-[#262c36] rounded border border-[#353c44]">
+                <div>
+                    <p class="text-xl font-bold text-center">
+                        Image Details
+                    </p>
+                    <p class="text-xs text-center">
+                        Details about the currently displayed image.
+                    </p>
+                    <MudDivider Class="my-2" Style="border-width: 2px; border-color: #353c44"/>
+                </div>
+
+                <div class="grid grid-cols-[30%_70%] gap-y-3">
+                    <p class="font-bold">Product Id:</p>
+                    <p>TODO</p>
+
+                    <p class="font-bold">Display Id:</p>
+                    <p>@currentScene.DisplayId</p>
+
+                    <p class="font-bold">Entity Id:</p>
+                    <p>@currentScene.EntityId</p>
+
+                    <p class="font-bold">Publish Date:</p>
+                    <p>@(currentScene.PublishDate.ToString("G"))</p>
+
+                    <p class="font-bold">Landsat Satellite:</p>
+                    <p>TODO</p>
+
+                    <p class="font-bold">Cloud Cover:</p>
+                    <p>TODO</p>
+                </div>
+            </div>
+        </div>
+    };
+
+}

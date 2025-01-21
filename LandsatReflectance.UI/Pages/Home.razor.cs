@@ -314,7 +314,8 @@ public partial class Home : ComponentBase
         }
 
         var asQueryParametersUrl = string.Join("&", queryParameters);
-        NavigationManager.NavigateTo($"TargetDetails?{asQueryParametersUrl}");
+        // NavigationManager.NavigateTo($"TargetDetails?{asQueryParametersUrl}");
+        NavigationManager.NavigateTo($"DetailedView?{asQueryParametersUrl}");
     }
 
     private static string FormatCoordinates(double latitude, double longitude) =>
