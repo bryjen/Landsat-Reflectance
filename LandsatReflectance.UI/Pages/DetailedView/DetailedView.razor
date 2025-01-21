@@ -56,7 +56,7 @@ else
                                    Variant="@Variant.Filled"
                                    Color="@Color.Primary"
                                    Disabled="@(_currentSceneIndex <= 0)"
-                                   OnClick="@(_ => { _currentSceneIndex--; _showImageLoadingDelayWarning = false; })"
+                                   OnClick="@(_ => { _currentSceneIndex--; })"
                                    Class="select-none"
                     />
 
@@ -82,7 +82,7 @@ else
                                    Variant="@Variant.Filled"
                                    Color="@Color.Primary"
                                    Disabled="@(_currentSceneIndex >= _sceneDataToImgStrMap.Count - 1)"
-                                   OnClick="@(_ => { _currentSceneIndex++; _showImageLoadingDelayWarning = false; })"
+                                   OnClick="@(_ => { _currentSceneIndex++; })"
                                    Class="select-none"
                     />
 
@@ -90,6 +90,7 @@ else
                                    Variant="Variant.Filled"
                                    Size="@Size.Small"
                                    Class="absolute top-2 right-2"
+                                   OnClick="@(_ => OpenSettings())"
                     />
                 </div>
             </div>
@@ -213,7 +214,7 @@ else
                     <p>@(currentScene.Metadata.PublishDate.ToString("G"))</p>
 
                     <p class="font-bold">Landsat Satellite:</p>
-                    <p>@currentScene.Metadata.Satellite</p>
+                    <p>Landsat @(currentScene.Metadata.Satellite)</p>
 
                     <p class="font-bold">Cloud Cover:</p>
                     <p>@(currentScene.Metadata.L1CloudCover / 100)</p>  @* Usgs API returns values from 0 - 100 *@

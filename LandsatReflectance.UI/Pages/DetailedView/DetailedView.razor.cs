@@ -4,11 +4,13 @@ using System.Text.RegularExpressions;
 using Blazored.SessionStorage;
 using LandsatReflectance.SceneBoundaries;
 using LandsatReflectance.UI.Components;
+using LandsatReflectance.UI.Components.Dialog;
 using LandsatReflectance.UI.Models;
 using LandsatReflectance.UI.Services;
 using LandsatReflectance.UI.Services.Api;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using MudBlazor;
 
 namespace LandsatReflectance.UI.Pages.DetailedView;
 
@@ -28,6 +30,9 @@ public partial class DetailedView : ComponentBase
     
     [Inject]
     public required NavigationManager NavigationManager { get; set; }
+    
+    [Inject]
+    public required IDialogService DialogService { get; set; }
     
     [Inject]
     public required ISyncSessionStorageService SessionStorageService { get; set; }
@@ -80,9 +85,6 @@ public partial class DetailedView : ComponentBase
     private bool _isLoading = true;
     private string? _loadingMsg = "Loading Images ...";
     
-    private bool _showQuickSummary;
-    private bool _showImageLoadingDelayWarning = true;
-    
     private Target? _target;
     private string? _errorMsg;
 
@@ -90,8 +92,15 @@ public partial class DetailedView : ComponentBase
     private LocationData? _locationData;
     private Dictionary<SceneData, string> _sceneDataToImgStrMap = new();
 
-    // Zoom style value in %
-    private double _imageZoom = 33.3;
+
+    private int _images = 10;
+    private int _skip = 0;
+    private bool _showLandsat8 = true;
+    private bool _showLandsat9 = true;
+    private double _minCloudCover = 0;
+    private double _maxCloudCover = 1;
+    public CloudCoverFilter _cloudCoverFilter { get; set; } = CloudCoverFilter.None;
+    
 
     protected override void OnInitialized()
     {
@@ -354,6 +363,60 @@ public partial class DetailedView : ComponentBase
         }
 
         return null;
+    }
+
+    private async Task OpenSettings()
+    {
+        var onDialogSubmit = (DetailedViewSettingsModel model) =>
+        {
+            _images = model.Images;
+            _skip = model.Skip;
+            _showLandsat8 = model.ShowLandsat8;
+            _showLandsat9 = model.ShowLandsat9;
+
+            _cloudCoverFilter = model.CloudCoverFilter;
+
+            if (model.CloudCoverFilter is CloudCoverFilter.CustomRange)
+            {
+                _minCloudCover = model.MinCloudCover;
+                _maxCloudCover = model.MaxCloudCover;
+            }
+            else if (model.CloudCoverFilter is CloudCoverFilter.TargetRange && model.TargetCloudCoverFilter is not null)
+            {
+                _minCloudCover = model.TargetCloudCoverFilter.Value.Min;
+                _maxCloudCover = model.TargetCloudCoverFilter.Value.Max;
+            }
+
+
+            Console.WriteLine($"{_minCloudCover} - {_maxCloudCover}");
+        };
+        
+        var parameters = new DialogParameters<DetailedViewSettingsDialog>
+        {
+            { x => x.Model, new DetailedViewSettingsModel()
+            {
+                Images = _images,
+                Skip = _skip,
+                ShowLandsat8 = _showLandsat8,
+                ShowLandsat9 = _showLandsat9,
+                MinCloudCover = _minCloudCover,
+                MaxCloudCover = _maxCloudCover,
+                CloudCoverFilter = _cloudCoverFilter,
+                TargetCloudCoverFilter = (0.1, 0.5),
+            } },
+            { x => x.OnDialogSubmit, EventCallback.Factory.Create(this, onDialogSubmit) }
+        };
+
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            
+            CloseOnEscapeKey = true,
+            BackdropClick = false,
+        };
+        
+        await DialogService.ShowAsync<DetailedViewSettingsDialog>(null, parameters, options);
     }
 
     

@@ -1,0 +1,122 @@
+﻿<MudDialog>
+    <TitleContent>
+        <p class="text-2xl font-bold">Image Display Settings</p>
+        <MudDivider Class="mt-4" Style="border-color: #353c44"/>
+    </TitleContent>
+    
+    <DialogContent>
+        <div class="grid grid-cols-[30%_70%] gap-x-3 gap-y-6">
+            <div class="flex flex-col">
+                <p class="font-bold text-lg">Images</p>
+                <p class="text-[0.7rem]">The <b>max</b> number of images/scenes to display. Min/Max: 10/50.</p>
+            </div>
+            <div class="flex items-center">
+                <MudNumericField @bind-Value="@Model.Images"
+                                 Min="10"
+                                 Max="50"
+                                 IconSize="@Size.Small"
+                                 Variant="Variant.Outlined"/>
+            </div>
+
+            <div class="flex flex-col">
+                <p class="font-bold text-lg">Skip</p>
+                <p class="text-[0.7rem]">The number of images to skip before displaying.</p>
+            </div>
+            <div class="flex items-center">
+                <MudNumericField @bind-Value="@Model.Skip"
+                                 Min="0"
+                                 IconSize="@Size.Small" 
+                                 Variant="Variant.Outlined"/>
+            </div>
+
+            <div class="flex flex-col">
+                <p class="font-bold text-lg">Images</p>
+                <p class="text-[0.7rem]">Filter by satellite metadata.</p>
+            </div>
+            <div class="flex gap-6">
+                <MudCheckBox @bind-Value="@Model.ShowLandsat8" Label="Landsat 8" Size="@Size.Small"/>
+                <MudCheckBox @bind-Value="@Model.ShowLandsat9" Label="Landsat 9" Size="@Size.Small"/>
+            </div>
+        </div>
+        
+        <MudDivider Class="my-4" Style="border-color: #353c44"/>
+        
+        <div>
+            <div class="flex flex-col">
+                <p class="font-bold text-lg">Cloud Cover Filter</p>
+                <p class="text-[0.7rem]">Filter by percentage of cloud cover per scene/image.</p>
+            </div>
+            
+            <MudRadioGroup T="string">
+                <div class="grid grid-cols-2 mt-4 gap-x-3">
+                    
+                    <div class="flex flex-col pr-8 border border-transparent border-r-[#353c44]">
+                        <MudSwitch Size="@Size.Small"
+                                   @bind-Value="@CustomRangeSelected"
+                                   Color="@Color.Primary"
+                                   >
+                            <p class="text-sm text-center select-none">
+                                Use custom range
+                            </p>
+                        </MudSwitch>
+
+                        <MudRangeSlider @bind-Value="@Model.MinCloudCover"
+                                        @bind-UpperValue="@Model.MaxCloudCover"
+                                        Min="0" Max="1"
+                                        Step="0.001"
+                                        MinDistance="0.002"
+                                        Size="@Size.Small"
+                                        Class="-mt-4"
+                                        Disabled="@(!CustomRangeSelected)"
+                        />
+                        
+                        @if (CustomRangeSelected)
+                        {
+                            <p class="text-center text-xs -mt-4 select-none">
+                                @($"{Model.MinCloudCover} - {Model.MaxCloudCover}")
+                            </p>
+                        }
+                    </div>
+
+                    <div>
+                        <MudSwitch Size="@Size.Small"
+                                   Disabled="@(!Model.TargetCloudCoverFilter.HasValue)"
+                                   @bind-Value="@TargetRangeSelected"
+                                   Color="@Color.Primary"
+                        >
+                            <p class="text-sm text-center select-none">
+                                Use target range
+                            </p>
+                        </MudSwitch>
+                        
+                        @if (Model.TargetCloudCoverFilter is not null && _targetRangeSelected)  // Using 'TargetRangeSelected' throws an error for some reason
+                        {
+                            <div class="mt-4">
+                                <p class="text-center text-xs select-none">
+                                    Using range:
+                                </p>
+                                <p class="font-bold text-center text-xs select-none">
+                                    @($"{Model.TargetCloudCoverFilter.Value.Min} - {Model.TargetCloudCoverFilter.Value.Max}")
+                                </p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </MudRadioGroup>
+        </div>
+    </DialogContent>
+    
+    <DialogActions>
+        <MudButton StartIcon="@Icons.Material.Filled.Save"
+                   Color="@Color.Primary"
+                   OnClick="@(_ => Submit())"
+                   >
+            Save
+        </MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.ExitToApp"
+                   Color="@Color.Error"
+                   >
+            Cancel
+        </MudButton>
+    </DialogActions>
+</MudDialog>
