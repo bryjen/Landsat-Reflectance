@@ -1,8 +1,9 @@
 ﻿FROM node:alpine AS build_css
 WORKDIR /src
 COPY . .
-RUN npm install tailwindcss postcss autoprefixer postcss-cli
-RUN npx tailwindcss -i /src/LandsatReflectance.UI/wwwroot/css/app.css -o /src/LandsatReflectance.UI/wwwroot/css/app.min.css -c /src/LandsatReflectance.UI/tailwind.config.js
+RUN npm install tailwindcss@3.4.17 --save-dev
+RUN ls
+RUN npx tailwindcss -i ./LandsatReflectance.UI/wwwroot/css/app.css -o ./LandsatReflectance.UI/wwwroot/css/app.min.css -c ./LandsatReflectance.UI/tailwind.config.js
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
