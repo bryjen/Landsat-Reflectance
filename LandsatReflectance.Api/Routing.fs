@@ -161,6 +161,24 @@ module private EndpointOpenApiConfigs =
                 resultsParam.Schema <- intSchema
                 o.Parameters.Add(resultsParam)
                 
+                let resultsParam = OpenApiParameter()
+                resultsParam.Name <- "skip"
+                resultsParam.In <- ParameterLocation.Query
+                resultsParam.Schema <- intSchema
+                o.Parameters.Add(resultsParam)
+                
+                let resultsParam = OpenApiParameter()
+                resultsParam.Name <- "min-cc"
+                resultsParam.In <- ParameterLocation.Query
+                resultsParam.Schema <- intSchema
+                o.Parameters.Add(resultsParam)
+                
+                let resultsParam = OpenApiParameter()
+                resultsParam.Name <- "max-cc"
+                resultsParam.In <- ParameterLocation.Query
+                resultsParam.Schema <- intSchema
+                o.Parameters.Add(resultsParam)
+                
                 o))
         
     let POST_userEndpointConfig = 
