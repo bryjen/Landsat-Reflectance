@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using LandsatReflectance.UI.Models;
 using LandsatReflectance.UI.Utils;
+using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.Extensions.Localization;
 
 namespace LandsatReflectance.UI.Services.Api;
@@ -13,15 +14,18 @@ public class ApiTargetService
 {
     private readonly JsonSerializerOptions _jsonSerializerOptions;
     private readonly ILogger<ApiTargetService> _logger;
+    private readonly IWebAssemblyHostEnvironment _environment;
     private readonly HttpClient _httpClient;
     
     public ApiTargetService(
         JsonSerializerOptions jsonSerializerOptions, 
         ILogger<ApiTargetService> logger, 
+        IWebAssemblyHostEnvironment environment, 
         HttpClient httpClient)
     {
         _jsonSerializerOptions = jsonSerializerOptions;
         _logger = logger;
+        _environment = environment;
         _httpClient = httpClient;
     }
 
@@ -29,11 +33,15 @@ public class ApiTargetService
         int path, 
         int row, 
         int results, 
+        int skip, 
+        int minCloudCoverInt, 
+        int maxCloudCoverInt, 
         CancellationToken? cancellationToken = null)
     {
         cancellationToken ??= CancellationToken.None;
 
-        var requestUri = $"scene?path={path}&row={row}&results={results}";
+        var requestUri = $"scene?path={path}&row={row}&results={results}&skip={skip}&min-cc={minCloudCoverInt}&max-cc={maxCloudCoverInt}";
+        _logger.LogInformation($"request uri: {requestUri}");
         var response = await _httpClient.GetAsync(requestUri, cancellationToken.Value);
 
         var responseBody = await response.Content.ReadAsStringAsync();

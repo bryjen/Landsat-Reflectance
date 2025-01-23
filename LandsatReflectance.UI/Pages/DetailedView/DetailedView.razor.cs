@@ -273,7 +273,9 @@ public partial class DetailedView : ComponentBase
         }
         else
         {
-            sceneDatas = await ApiTargetService.TryGetSceneData(_target.Path, _target.Row, _images);
+            var minCcInt = (int)Math.Floor(_minCloudCover * 100);
+            var maxCcInt = (int)Math.Ceiling(_maxCloudCover * 100);
+            sceneDatas = await ApiTargetService.TryGetSceneData(_target.Path, _target.Row, _images, _skip, minCcInt, maxCcInt);
             SessionStorageService.SetItem(targetKey, sceneDatas);
         }
         
@@ -300,10 +302,13 @@ public partial class DetailedView : ComponentBase
     private async Task<Dictionary<SceneData, string>> GetSceneToImgStrMap(List<SceneData> sceneDatas)
     {
         var tasks = new List<Task<string?>>();
+        var browsePathKeys = new List<string>();
         
         foreach (var sceneData in sceneDatas)
         {
             var sessionStorageKey = HashBrowsePath(sceneData);
+            browsePathKeys.Add(sessionStorageKey);
+            
             if (sceneData.BrowsePath is not null)
             {
                 if (SessionStorageService.ContainKey(sessionStorageKey))
@@ -332,6 +337,17 @@ public partial class DetailedView : ComponentBase
         {
             Logger.LogInformation($"{stopwatch.Elapsed:g}");
         }
+        
+        
+        // Cleaning unused entries in session storage
+        foreach (var key in SessionStorageService.Keys().Where(key => key.StartsWith("browse-path:")))
+        {
+            if (!browsePathKeys.Contains(key))
+            {
+                SessionStorageService.RemoveItem(key);
+            }
+        }
+        
 
         return imgDataStrs;
     }
@@ -370,6 +386,10 @@ public partial class DetailedView : ComponentBase
     {
         var onDialogSubmit = async (DetailedViewSettingsModel model) =>
         {
+            _isLoading = true;
+            _loadingMsg = "Applying settings ...";
+            await InvokeAsync(StateHasChanged);
+            
             _images = model.Images;
             _skip = model.Skip;
             _showLandsat8 = model.ShowLandsat8;
@@ -398,10 +418,12 @@ public partial class DetailedView : ComponentBase
                 }
             }
             
+            _loadingMsg = "Loading Images ...";
+            await InvokeAsync(StateHasChanged);
+            
             TryInitTarget();
             var sceneDatas = await TryGetSceneData();
 
-            _isLoading = true;
             _loadingMsg = "Caching Images ...";
             await InvokeAsync(StateHasChanged);
             

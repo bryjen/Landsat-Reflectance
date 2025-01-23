@@ -218,6 +218,9 @@ else
 
                     <p class="font-bold">Cloud Cover:</p>
                     <p>@(currentScene.Metadata.L1CloudCover / 100)</p>  @* Usgs API returns values from 0 - 100 *@
+                    
+                    <p class="font-bold">Cloud Cover (int):</p>
+                    <p>@(currentScene.Metadata.CloudCoverInt)</p>
                 </div>
             </div>
         </div>

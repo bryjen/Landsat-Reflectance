@@ -17,5 +17,6 @@ public class Metadata
     public string? L1ProductId { get; set; }
     public string? L2ProductId { get; set; }
     public float? L1CloudCover { get; set; }
+    public int? CloudCoverInt { get; set; }
     public int? Satellite { get; set; }
 }

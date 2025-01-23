@@ -210,7 +210,10 @@ public partial class Home : ComponentBase
             var sceneDataArr = await ApiTargetService.TryGetSceneData(
                 target.Path,
                 target.Row, 
-                2);
+                2,
+                0,
+                0,
+                100);
             
             var sceneData = sceneDataArr.FirstOrDefault();
             
