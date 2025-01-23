@@ -12,6 +12,7 @@ deploy.fsx.lock
 .nuke
 LandsatReflectance.Build/LandsatReflectance.Build.csproj.DotSettings
 
+
 # Pipeline output directory
 build-artifacts
 

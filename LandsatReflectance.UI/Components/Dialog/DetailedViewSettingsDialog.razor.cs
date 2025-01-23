@@ -88,7 +88,7 @@ public partial class DetailedViewSettingsDialog : ComponentBase
 
     private async Task Submit()
     { 
-        await OnDialogSubmit.InvokeAsync(Model);
         MudDialog.Close();
+        await OnDialogSubmit.InvokeAsync(Model);
     }
 }

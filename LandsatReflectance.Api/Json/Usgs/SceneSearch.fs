@@ -12,7 +12,15 @@ open LandsatReflectance.Api.Models.Usgs.Scene
 
 
 /// Creates a request to the endpoint 'scene-search' for some scene data.
-let createSceneSearchRequest (path: int) (row: int) (results: int) : string =
+let createSceneSearchRequest
+    (path: int)
+    (row: int)
+    (results: int)
+    (skip: int)
+    (minCloudCover: int)
+    (maxCloudCover: int)
+    : string =
+    // Creating metadata filter
     let pathMetadataValueFilterJsonObj = JsonObject()
     pathMetadataValueFilterJsonObj["filterType"] <- JsonValue.Create("value")
     pathMetadataValueFilterJsonObj["filterId"] <- JsonValue.Create("5e83d14fb9436d88")
@@ -30,13 +38,22 @@ let createSceneSearchRequest (path: int) (row: int) (results: int) : string =
     metadataFilterJsonObj["childFilters"] <- JsonValue.Create([| pathMetadataValueFilterJsonObj; rowMetadataValueFilterJsonObj |])
     
     
+    // Creating cloud cover filter
+    let cloudCoverFilterJsonObj = JsonObject()
+    cloudCoverFilterJsonObj["min"] <- JsonValue.Create(minCloudCover)
+    cloudCoverFilterJsonObj["max"] <- JsonValue.Create(maxCloudCover)
+    cloudCoverFilterJsonObj["includeUnknown"] <- JsonValue.Create(true)
+    
+    
     let sceneFilterJsonObj = JsonObject()
     sceneFilterJsonObj["metadataFilter"] <- metadataFilterJsonObj
+    sceneFilterJsonObj["cloudCoverFilter"] <- cloudCoverFilterJsonObj
     
     
     let requestJsonObj = JsonObject()
     requestJsonObj["datasetName"] <- JsonValue.Create("landsat_ot_c2_l2")
     requestJsonObj["maxResults"] <- JsonValue.Create(results.ToString())
+    requestJsonObj["startingNumber"] <- JsonValue.Create(skip.ToString())
     requestJsonObj["useCustomization"] <- JsonValue.Create(false)
     requestJsonObj["sceneFilter"] <- sceneFilterJsonObj
 
@@ -105,12 +122,14 @@ and private tryParseToSceneData (jsonElement: JsonElement) : Result<SceneData, E
         
         let entityId = jsonElement.GetProperty("entityId").GetString()
         let displayId = jsonElement.GetProperty("displayId").GetString()
+        let cloudCoverInt = jsonElement.GetProperty("cloudCover").GetInt32()
         let publishDate = DateTimeOffset.Parse(jsonElement.GetProperty("publishDate").GetString())
         
         { BrowseInfos = browseInfos
           EntityId = entityId
           DisplayId = displayId
           Metadata = metadata
+          CloudCoverInt = cloudCoverInt
           PublishDate = publishDate }
         |> Ok
     with

@@ -9,6 +9,7 @@ using LandsatReflectance.UI.Models;
 using LandsatReflectance.UI.Services;
 using LandsatReflectance.UI.Services.Api;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using MudBlazor;
 
@@ -272,7 +273,7 @@ public partial class DetailedView : ComponentBase
         }
         else
         {
-            sceneDatas = await ApiTargetService.TryGetSceneData(_target.Path, _target.Row, 10);
+            sceneDatas = await ApiTargetService.TryGetSceneData(_target.Path, _target.Row, _images);
             SessionStorageService.SetItem(targetKey, sceneDatas);
         }
         
@@ -367,7 +368,7 @@ public partial class DetailedView : ComponentBase
 
     private async Task OpenSettings()
     {
-        var onDialogSubmit = (DetailedViewSettingsModel model) =>
+        var onDialogSubmit = async (DetailedViewSettingsModel model) =>
         {
             _images = model.Images;
             _skip = model.Skip;
@@ -387,8 +388,32 @@ public partial class DetailedView : ComponentBase
                 _maxCloudCover = model.TargetCloudCoverFilter.Value.Max;
             }
 
+            // Reloading the images
+            if (_target is not null)
+            {
+                var targetKey = HashTarget(_target);
+                if (SessionStorageService.ContainKey(targetKey))
+                {
+                    SessionStorageService.RemoveItem(targetKey);
+                }
+            }
+            
+            TryInitTarget();
+            var sceneDatas = await TryGetSceneData();
 
-            Console.WriteLine($"{_minCloudCover} - {_maxCloudCover}");
+            _isLoading = true;
+            _loadingMsg = "Caching Images ...";
+            await InvokeAsync(StateHasChanged);
+            
+            _sceneDataToImgStrMap = await GetSceneToImgStrMap(sceneDatas);
+            
+            _isLoading = false;
+            await InvokeAsync(StateHasChanged);
+
+            if (!Environment.IsProduction())
+            {
+                Console.WriteLine($"{_minCloudCover} - {_maxCloudCover}");
+            }
         };
         
         var parameters = new DialogParameters<DetailedViewSettingsDialog>
@@ -419,6 +444,14 @@ public partial class DetailedView : ComponentBase
         await DialogService.ShowAsync<DetailedViewSettingsDialog>(null, parameters, options);
     }
 
+    private void HandleKeyPress(KeyboardEventArgs args)
+    {
+        if (!Environment.IsProduction())
+        {
+            Console.WriteLine(args.Code);
+            Console.WriteLine(args.Key);
+        }
+    }
     
     private static string HashBrowsePath(SceneData sceneData) => $"browse-path:{sceneData.Metadata.EntityId}";
     

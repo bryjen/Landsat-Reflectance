@@ -67,6 +67,7 @@ and simplifyMetadata (sceneData: SceneData) =
       L1ProductId = l1ProductIdOption
       L2ProductId = l2ProductIdOption
       L1CloudCover = l1CloudCoverOption
+      CloudCoverInt = Some sceneData.CloudCoverInt
       Satellite = satelliteOption }
 
 
@@ -74,9 +75,9 @@ type UsgsSceneService(
     usgsHttpClient: UsgsHttpClient,
     usgsTokenService: UsgsTokenService) =
     
-    member this.GetScenes(path: int, row: int, results: int) =
+    member this.GetScenes(path: int, row: int, results: int, skip: int, minCloudCover: int, maxCloudCover: int) =
         task {
-            let sceneSearchRequest = createSceneSearchRequest path row results
+            let sceneSearchRequest = createSceneSearchRequest path row results skip minCloudCover maxCloudCover
             use requestContent = new StringContent(sceneSearchRequest, Encoding.UTF8, "application/json")
             
             let! authTokenResult = usgsTokenService.GetToken()

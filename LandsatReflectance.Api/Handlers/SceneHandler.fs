@@ -41,21 +41,39 @@ module SceneHandler =
         result {
             let! path = getRequiredQueryParameter ctx "path" |> Result.bind (tryParseToInt "path")
             let! row = getRequiredQueryParameter ctx "row" |> Result.bind (tryParseToInt "row")
+            
             let! results =
                 match ctx.TryGetQueryStringValue "results" with
                 | None -> Ok 10
                 | Some value -> tryParseToInt "results" value
                 
-            return path, row, results
+            let! skip =
+                match ctx.TryGetQueryStringValue "skip" with
+                | None -> Ok 0
+                | Some value -> tryParseToInt "skip" value
+                
+            let! minCloudCover =
+                match ctx.TryGetQueryStringValue "min-cc" with
+                | None -> Ok 0
+                | Some value -> tryParseToInt "min-cc" value
+                
+            let! maxCloudCover =
+                match ctx.TryGetQueryStringValue "max-cc" with
+                | None -> Ok 100
+                | Some value -> tryParseToInt "max-cc" value
+                
+            return path, row, results, skip, minCloudCover, maxCloudCover
         }
         
     // wrapper around 'UsgsSceneService' that logs and processes output
-    let private getScenes (ctx: HttpContext) (logger: ILogger) (requestId: Guid) (infoTuple: int * int * int) =
+    let private getScenes (ctx: HttpContext) (logger: ILogger) (requestId: Guid) (infoTuple: int * int * int * int * int * int) =
         task {
-            let path, row, results = infoTuple
+            let path, row, results, skip, minCloudCover, maxCloudCover = infoTuple
             let sceneService = ctx.RequestServices.GetRequiredService<UsgsSceneService>()
-            let! sceneDataResult = sceneService.GetScenes(path, row, results)
-            match sceneDataResult with
+            let! sceneDataResult = sceneService.GetScenes(path, row, results, skip, minCloudCover, maxCloudCover)
+            let sceneDataResultSorted = Result.map (Array.sortByDescending _.Metadata.PublishDate) sceneDataResult
+            
+            match sceneDataResultSorted with
             | Ok sceneData ->
                 let successfulResponse =
                     { RequestGuid = requestId
