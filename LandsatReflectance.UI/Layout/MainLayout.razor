@@ -1,4 +1,5 @@
 ﻿@using LandsatReflectance.UI.Components
+@using Microsoft.AspNetCore.Components.WebAssembly.Hosting
 @inherits LayoutComponentBase
 
 
@@ -22,9 +23,31 @@
                 IsDrawerExpanded="@UiService.IsDrawerExpanded"
                 FullPageLoadingOverlay="@_fullPageLoadingOverlay" />
 
+            @{
+                // we place it here instead of declaring it inline so we get better type support in ide
+                var onUnhandledError = EventCallback.Factory.Create<(Exception, Func<Task>?)>(this, ShowUnexpectedErrorDialog);
+            }
+            
             <MudMainContent>
-                <CascadingValue Value="@_fullPageLoadingOverlay">
-                    @Body
+                <CascadingValue Value="@_fullPageLoadingOverlay" Name="FullPageLoadingOverlay">
+                    <CascadingValue Value="@onUnhandledError" Name="OnUnhandledError">
+                        
+                        <ErrorBoundary @ref="@_errorBoundary">
+                            <ChildContent>
+                                @if (_exceptionData is not null || _dialogReference is not null)
+                                {
+                                    @RenderTriggerableErrorDialog
+                                }
+                                @Body
+                            </ChildContent>
+                            <ErrorContent>
+                                @RenderFixedErrorDialog(context)
+                                @Body
+                            </ErrorContent>
+                        </ErrorBoundary>
+
+
+                    </CascadingValue>
                 </CascadingValue>
             </MudMainContent>
         </MudLayout>
@@ -36,3 +59,112 @@
     <a href="" class="reload">Reload</a>
     <a class="dismiss">🗙</a>
 </div>
+
+@code {
+
+@* ReSharper disable UnusedParameter.Local *@
+    private RenderFragment RenderTriggerableErrorDialog => __builder =>
+@* ReSharper restore UnusedParameter.Local *@
+    {
+        var dialogOptions = GetDialogOptions(null);
+        <MudDialog @ref="@_mudDialog" Options="@dialogOptions">
+            <DialogContent>
+                @RenderErrorDialogBody(null)
+            </DialogContent>
+            
+            <DialogActions>
+                <MudButton Color="@Color.Error" Variant="@Variant.Filled" OnClick="@OnTriggerableErrorDialogDismissed">
+                    Dismiss
+                </MudButton>
+            </DialogActions>
+        </MudDialog>
+    };
+
+    
+@* ReSharper disable UnusedParameter.Local *@
+    private RenderFragment RenderFixedErrorDialog(Exception exception) => __builder =>
+@* ReSharper restore UnusedParameter.Local *@
+    {
+        var dialogOptions = GetDialogOptions(exception);
+        <MudDialog Visible Options="@dialogOptions">
+            <DialogContent>
+                @RenderErrorDialogBody(exception)
+            </DialogContent>
+
+            <DialogActions>
+                <MudButton Color="@Color.Error" Variant="@Variant.Filled" OnClick="@DefaultRecovery">
+                    Dismiss
+                </MudButton>
+            </DialogActions>
+        </MudDialog>
+    };
+
+
+@* ReSharper disable UnusedParameter.Local *@
+    private RenderFragment RenderErrorDialogBody(Exception? exception) => __builder =>
+@* ReSharper restore UnusedParameter.Local *@
+    {
+        switch (Environment.Environment)
+        {
+            case "Production":
+                    <div class="flex items-start gap-6 py-2">
+                        <MudIcon Size="@Size.Large" Icon="@Icons.Material.Filled.Warning" Color="@Color.Error" />
+                        <p>
+                            An unexpected error occurred. If this problem persists, please contact&nbsp;
+                            <span class="text-[#8c9fb6] bg-[#151b23] rounded pa-1">something@email.com</span>
+                            . It would really help!
+                        </p>
+                    </div>
+                break;
+            default:
+                if (exception is not null)  // triggered when error boundary catches an exception
+                {
+                    <div class="flex items-start gap-6 py-2">
+                        <MudIcon Size="@Size.Large" Icon="@Icons.Material.Filled.Warning" Color="@Color.Error" />
+                        <div class="flex flex-col gap-4 overflow-hidden">
+                            <p>
+                                An error was caught by the <b>error boundary</b>.
+                            </p>
+                            @RenderExceptionStackTrace(exception)
+                        </div>
+                    </div>
+                }
+                else if (_exceptionData is not null)
+                {
+                    <div class="flex items-start gap-6 py-2">
+                        <MudIcon Size="@Size.Large" Icon="@Icons.Material.Filled.Warning" Color="@Color.Error" />
+                        <div class="flex flex-col gap-4 overflow-hidden">
+                            <p>
+                                A component triggered the error dialog. 
+                                @if (_exceptionData.Value.TryRecoverCallback is not null)
+                                {
+                                    <span>A recovery callback is provided.</span>
+                                }
+                                else
+                                {
+                                    <span>A recovery callback is <b>NOT</b> provided.</span>
+                                }
+                            </p>
+                            @RenderExceptionStackTrace(_exceptionData.Value.Exception)
+                        </div>
+                    </div>
+                }
+                else
+                {
+                }
+                break;
+        }
+    };
+    
+@* ReSharper disable UnusedParameter.Local *@
+    private RenderFragment RenderExceptionStackTrace(Exception exception) => __builder =>
+@* ReSharper restore UnusedParameter.Local *@
+    {
+        <div class="overflow-auto text-[#8c9fb6] bg-[#151b23] rounded pa-1">
+            <p class="pa-4 whitespace-pre text-sm font-['JetBrains_Mono']">
+                @exception
+            </p>
+        </div>
+    };
+
+}

@@ -36,6 +36,9 @@ public partial class DetailedView : ComponentBase
     public required IDialogService DialogService { get; set; }
     
     [Inject]
+    public required ISnackbar Snackbar { get; set; }
+    
+    [Inject]
     public required ISyncSessionStorageService SessionStorageService { get; set; }
     
     [Inject]
@@ -51,8 +54,6 @@ public partial class DetailedView : ComponentBase
     public required CurrentTargetsService CurrentTargetsService { get; set; }
 
     
-    [CascadingParameter]
-    public required FullPageLoadingOverlay FullPageLoadingOverlay { get; set; }
     
     [Parameter]
     [SupplyParameterFromQuery(Name = "target-id")]
@@ -81,6 +82,13 @@ public partial class DetailedView : ComponentBase
     [Parameter]
     [SupplyParameterFromQuery(Name = "max-cc-filter")]
     public string? MaxCloudCoverFilter { get; set; }
+    
+    
+    [CascadingParameter(Name = "OnUnhandledError")]
+    public EventCallback<(Exception, Func<Task>?)> OnUnhandledError { get; set; }
+    
+    [CascadingParameter]
+    public required FullPageLoadingOverlay FullPageLoadingOverlay { get; set; }
 
     
     private bool _isLoading = true;
@@ -157,6 +165,29 @@ public partial class DetailedView : ComponentBase
         
         CurrentUserService.OnUserLogout -= CurrentTargetsService.OnUserLogout;
         #nullable enable
+    }
+
+    private async Task RecoverPage()
+    {
+        _images = 10;
+        _skip = 0;
+        _showLandsat8 = true;
+        _showLandsat9 = true;
+        _minCloudCover = 0;
+        _maxCloudCover = 1;
+        _cloudCoverFilter = CloudCoverFilter.None;
+
+        Snackbar.Add("Reset image search parameters.", Severity.Info);
+        
+        var sceneDatas = await TryGetSceneData();
+        
+        _loadingMsg = "Caching Images ...";
+        StateHasChanged();
+        
+        _sceneDataToImgStrMap = await GetSceneToImgStrMap(sceneDatas);
+        
+        _isLoading = false;
+        StateHasChanged();
     }
 
     
@@ -301,14 +332,19 @@ public partial class DetailedView : ComponentBase
 
     private async Task<Dictionary<SceneData, string>> GetSceneToImgStrMap(List<SceneData> sceneDatas)
     {
-        var tasks = new List<Task<string?>>();
-        var browsePathKeys = new List<string>();
+        var browsePathKeys = sceneDatas.Select(HashBrowsePath).ToHashSet();
+        foreach (var key in SessionStorageService.Keys())
+        {
+            if (!browsePathKeys.Contains(key))
+            {
+                SessionStorageService.RemoveItem(key);
+            }
+        }
         
+        var tasks = new List<Task<string?>>();
         foreach (var sceneData in sceneDatas)
         {
             var sessionStorageKey = HashBrowsePath(sceneData);
-            browsePathKeys.Add(sessionStorageKey);
-            
             if (sceneData.BrowsePath is not null)
             {
                 if (SessionStorageService.ContainKey(sessionStorageKey))
@@ -336,16 +372,6 @@ public partial class DetailedView : ComponentBase
         if (!Environment.IsProduction())
         {
             Logger.LogInformation($"{stopwatch.Elapsed:g}");
-        }
-        
-        
-        // Cleaning unused entries in session storage
-        foreach (var key in SessionStorageService.Keys().Where(key => key.StartsWith("browse-path:")))
-        {
-            if (!browsePathKeys.Contains(key))
-            {
-                SessionStorageService.RemoveItem(key);
-            }
         }
         
 
@@ -386,55 +412,62 @@ public partial class DetailedView : ComponentBase
     {
         var onDialogSubmit = async (DetailedViewSettingsModel model) =>
         {
-            _isLoading = true;
-            _loadingMsg = "Applying settings ...";
-            await InvokeAsync(StateHasChanged);
-            
-            _images = model.Images;
-            _skip = model.Skip;
-            _showLandsat8 = model.ShowLandsat8;
-            _showLandsat9 = model.ShowLandsat9;
-
-            _cloudCoverFilter = model.CloudCoverFilter;
-
-            if (model.CloudCoverFilter is CloudCoverFilter.CustomRange)
+            try
             {
-                _minCloudCover = model.MinCloudCover;
-                _maxCloudCover = model.MaxCloudCover;
-            }
-            else if (model.CloudCoverFilter is CloudCoverFilter.TargetRange && model.TargetCloudCoverFilter is not null)
-            {
-                _minCloudCover = model.TargetCloudCoverFilter.Value.Min;
-                _maxCloudCover = model.TargetCloudCoverFilter.Value.Max;
-            }
+                _isLoading = true;
+                _loadingMsg = "Applying settings ...";
+                await InvokeAsync(StateHasChanged);
+                
+                _images = model.Images;
+                _skip = model.Skip;
+                _showLandsat8 = model.ShowLandsat8;
+                _showLandsat9 = model.ShowLandsat9;
 
-            // Reloading the images
-            if (_target is not null)
-            {
-                var targetKey = HashTarget(_target);
-                if (SessionStorageService.ContainKey(targetKey))
+                _cloudCoverFilter = model.CloudCoverFilter;
+
+                if (model.CloudCoverFilter is CloudCoverFilter.CustomRange)
                 {
-                    SessionStorageService.RemoveItem(targetKey);
+                    _minCloudCover = model.MinCloudCover;
+                    _maxCloudCover = model.MaxCloudCover;
+                }
+                else if (model.CloudCoverFilter is CloudCoverFilter.TargetRange && model.TargetCloudCoverFilter is not null)
+                {
+                    _minCloudCover = model.TargetCloudCoverFilter.Value.Min;
+                    _maxCloudCover = model.TargetCloudCoverFilter.Value.Max;
+                }
+
+                // Reloading the images
+                if (_target is not null)
+                {
+                    var targetKey = HashTarget(_target);
+                    if (SessionStorageService.ContainKey(targetKey))
+                    {
+                        SessionStorageService.RemoveItem(targetKey);
+                    }
+                }
+                
+                _loadingMsg = "Loading Images ...";
+                await InvokeAsync(StateHasChanged);
+                
+                TryInitTarget();
+                var sceneDatas = await TryGetSceneData();
+
+                _loadingMsg = "Caching Images ...";
+                await InvokeAsync(StateHasChanged);
+                
+                _sceneDataToImgStrMap = await GetSceneToImgStrMap(sceneDatas);
+                
+                _isLoading = false;
+                await InvokeAsync(StateHasChanged);
+
+                if (!Environment.IsProduction())
+                {
+                    Console.WriteLine($"{_minCloudCover} - {_maxCloudCover}");
                 }
             }
-            
-            _loadingMsg = "Loading Images ...";
-            await InvokeAsync(StateHasChanged);
-            
-            TryInitTarget();
-            var sceneDatas = await TryGetSceneData();
-
-            _loadingMsg = "Caching Images ...";
-            await InvokeAsync(StateHasChanged);
-            
-            _sceneDataToImgStrMap = await GetSceneToImgStrMap(sceneDatas);
-            
-            _isLoading = false;
-            await InvokeAsync(StateHasChanged);
-
-            if (!Environment.IsProduction())
+            catch (Exception exception)
             {
-                Console.WriteLine($"{_minCloudCover} - {_maxCloudCover}");
+                await OnUnhandledError.InvokeAsync((exception, RecoverPage));
             }
         };
         
