@@ -137,7 +137,7 @@ module UserTargetsPost =
               MaxCloudCoverFilter = this.MaxCloudCoverFilter
               NotificationOffset = this.NotificationOffset }
             
-    let private tranformPostResult next ctx (logger: ILogger) requestId result =
+    let private transformPostResult next ctx (logger: ILogger) requestId result =
         match result with
         | Ok target ->
             let asApiResponseObj = { RequestGuid = requestId; ErrorMessage = None; Data = Some target }
@@ -167,12 +167,12 @@ module UserTargetsPost =
             
             return! 
                 tryGetUserEmail ctx
-                |> Result.bind dbUserService.TryGetUserByEmail
-                |> Result.map (fun user -> requestModel.CreateTargetDto(user.Id))
                 |> TaskResult.ofResult
+                |> TaskResult.bind dbUserService.TryGetUserByEmail
+                |> TaskResult.map (fun user -> requestModel.CreateTargetDto(user.Id))
                 |> TaskResult.bind dbUserTargetService.TryAddTarget
                 |> TaskResult.map SimplifiedTarget.FromTarget
-                |> Task.bind (tranformPostResult next ctx logger requestId)
+                |> Task.bind (transformPostResult next ctx logger requestId)
         }
         
         

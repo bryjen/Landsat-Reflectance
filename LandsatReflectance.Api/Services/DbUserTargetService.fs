@@ -217,21 +217,17 @@ type DbUserTargetService(
         }
         
     member this.TryDeleteTarget(userEmail: string, targetId: Guid) =
-        task {
+        taskResult {
             use connection = new MySqlConnection(dbOptions.Value.DbConnectionString)
             connection.Open()
             
-            let user = userService.TryGetUserByEmail(userEmail)
-            
-            return 
-                user
-                |> Result.map (fun user -> (user.Id, targetId))
-                |> Result.bind (fun (userId, targetId) -> tryDeleteJoinEntry logger connection userId targetId)
-                |> Result.bind (fun (_, targetId) -> tryDeleteTarget logger connection targetId )
+            let! user = userService.TryGetUserByEmail(userEmail)
+            let! _, targetId = tryDeleteJoinEntry logger connection user.Id targetId
+            let guid = tryDeleteTarget logger connection targetId
+            return guid
         }
         
     member this.TryEditTarget(transformTarget: Target -> Target, targetId: Guid) : Task<Result<Target, string>> =
-        
         // Helper methods
         let assertSomeTarget targetOption =
             // Wrapped with a task CE to be able to use 'TaskResult's bind fn

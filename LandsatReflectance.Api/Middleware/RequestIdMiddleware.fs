@@ -12,7 +12,7 @@ open Microsoft.Extensions.DependencyInjection
 let requestIdMiddleware (next: HttpFunc) (ctx: HttpContext) =
     
     let loggerFactory = ctx.RequestServices.GetRequiredService<ILoggerFactory>()
-    let logger = loggerFactory.CreateLogger("FsLandsatApi.Middleware.RequestIdMiddleware")
+    let logger = loggerFactory.CreateLogger("LandsatReflectance.Api.Middleware.RequestIdMiddleware")
     
     let requestId = Guid.NewGuid()
     ctx.Items["requestId"] <- requestId

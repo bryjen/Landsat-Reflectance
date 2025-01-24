@@ -1,6 +1,7 @@
 ﻿module LandsatReflectance.Api.Routing
 
 open LandsatReflectance.Api.Handlers.UserHandler.RefreshTokenLoginPost
+open LandsatReflectance.Api.Middleware.GlobalErrorHandlingMiddleware
 open Microsoft.OpenApi.Models
 
 open Giraffe.EndpointRouting
@@ -92,6 +93,19 @@ module private EndpointOpenApiConfigs =
                 
                 o))
         
+    let GET_testErrorEndpointConfig = 
+        OpenApiConfig(
+            responseBodies = [| ResponseBody(typeof<ApiResponse<string>>) |],
+            configureOperation = (fun o ->
+                o.Tags.Clear()
+                let tag = OpenApiTag()
+                tag.Name <- "test-error"
+                o.Tags.Add(tag)
+                
+                o.OperationId <- "GET_test_error"
+                o.Summary <- "Intentionally throws an 'uncaught' internal server error. Use to evaluate the global error handling middleware."
+                
+                o))
         
     let GET_sceneDataStrEndpointConfig = 
         OpenApiConfig(
@@ -346,7 +360,9 @@ let notLoggedIn =
         "Some Realm"
         "You must be logged in."
 
-let mustBeLoggedIn: HttpHandler = requiresAuthentication notLoggedIn
+let mustBeLoggedIn : HttpHandler = requiresAuthentication notLoggedIn
+
+let defaultMiddleware : HttpHandler = requestIdMiddleware >=> globalErrorHandlingMiddleware
     
     
 let endpoints: Routers.Endpoint list = [
@@ -355,43 +371,46 @@ let endpoints: Routers.Endpoint list = [
         // No auth requirements for scene endpoints because we would still like the user to be able to see scene information
         // without being logged in.
         
-        Routers.route "/scene-data-str" (GET >=> requestIdMiddleware >=> SceneDataStr.handler)
+        Routers.route "/scene-data-str" (GET >=> defaultMiddleware >=> SceneDataStr.handler)
         |> addOpenApi EndpointOpenApiConfigs.GET_sceneDataStrEndpointConfig
         
-        Routers.route "/scene" (GET >=> requestIdMiddleware >=> SceneHandler.handler)
+        Routers.route "/scene" (GET >=> defaultMiddleware >=> SceneHandler.handler)
         |> addOpenApi EndpointOpenApiConfigs.sceneEndpointConfig
         
-        Routers.route "/user/targets" (GET >=> mustBeLoggedIn >=> requestIdMiddleware >=> UserTargetsGet.handler)
+        Routers.route "/user/targets" (GET >=> mustBeLoggedIn >=> defaultMiddleware >=> UserTargetsGet.handler)
         |> addOpenApi EndpointOpenApiConfigs.GET_userTargetsEndpointConfig
+        
+        Routers.route "/test-error" (GET >=> defaultMiddleware >=> generateSyntheticInternalErrorHandler)
+        |> addOpenApi EndpointOpenApiConfigs.GET_testErrorEndpointConfig
     ]
     
     Routers.POST [
-        Routers.route "/user" (POST >=> requestIdMiddleware >=> UserLoginPost.handler)
+        Routers.route "/user" (POST >=> defaultMiddleware >=> UserLoginPost.handler)
         |> addOpenApi EndpointOpenApiConfigs.POST_userEndpointConfig
         
-        Routers.route "/user/create" (POST >=> requestIdMiddleware >=> UserCreatePost.handler)
+        Routers.route "/user/create" (POST >=> defaultMiddleware >=> UserCreatePost.handler)
         |> addOpenApi EndpointOpenApiConfigs.POST_createUserEndpointConfig
         
-        Routers.route "/user/refresh-token-login" (POST >=> requestIdMiddleware >=> RefreshTokenLoginPost.handler)
+        Routers.route "/user/refresh-token-login" (POST >=> defaultMiddleware >=> RefreshTokenLoginPost.handler)
         |> addOpenApi EndpointOpenApiConfigs.POST_userRefreshTokenLoginEndpointConfig
         
-        Routers.route "/user/targets" (POST >=> mustBeLoggedIn >=> requestIdMiddleware >=> UserTargetsPost.handler)
+        Routers.route "/user/targets" (POST >=> mustBeLoggedIn >=> defaultMiddleware >=> UserTargetsPost.handler)
         |> addOpenApi EndpointOpenApiConfigs.POST_userTargetsEndpointConfig
     ]
     
     Routers.PATCH [
-        Routers.route "/user" (PATCH >=> mustBeLoggedIn >=> requestIdMiddleware >=> UserPatch.handler)
+        Routers.route "/user" (PATCH >=> mustBeLoggedIn >=> defaultMiddleware >=> UserPatch.handler)
         |> addOpenApi EndpointOpenApiConfigs.PATCH_userEndpointConfig
         
-        Routers.route "/user/targets" (PATCH >=> mustBeLoggedIn >=> requestIdMiddleware >=> UserTargetsPatch.handler)
+        Routers.route "/user/targets" (PATCH >=> mustBeLoggedIn >=> defaultMiddleware >=> UserTargetsPatch.handler)
         |> addOpenApi EndpointOpenApiConfigs.PATCH_userTargetsEndpointConfig
     ]
     
     Routers.DELETE [
-        Routers.route "/user" (DELETE >=> mustBeLoggedIn >=> requestIdMiddleware >=> UserDelete.handler)
+        Routers.route "/user" (DELETE >=> mustBeLoggedIn >=> defaultMiddleware >=> UserDelete.handler)
         |> addOpenApi EndpointOpenApiConfigs.DELETE_userEndpointConfig
         
-        Routers.route "user/targets" (DELETE >=> mustBeLoggedIn >=> requestIdMiddleware >=> UserTargetsDelete.handler)
+        Routers.route "user/targets" (DELETE >=> mustBeLoggedIn >=> defaultMiddleware >=> UserTargetsDelete.handler)
         |> addOpenApi EndpointOpenApiConfigs.DELETE_userTargetsEndpointConfig
     ]
 ]

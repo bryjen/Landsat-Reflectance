@@ -25,6 +25,7 @@
         <Compile Include="Services\DbUserService.fs" />
         <Compile Include="Services\DbUserTargetService.fs" />
         <Compile Include="Middleware\RequestIdMiddleware.fs" />
+        <Compile Include="Middleware\GlobalErrorHandlingMiddleware.fs" />
         <Compile Include="Handlers\SceneHandler.fs" />
         <Compile Include="Handlers\UserHandler.fs" />
         <Compile Include="Handlers\UserTargetsHandler.fs" />

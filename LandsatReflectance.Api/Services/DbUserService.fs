@@ -3,6 +3,7 @@
 open System
 open System.Threading.Tasks
 
+open FsToolkit.ErrorHandling
 open Microsoft.Extensions.Logging
 open Microsoft.Extensions.Options
 
@@ -72,7 +73,7 @@ type DbUserService(
         csb
     
     
-    member this.TryGetJwtGuid(userEmail: string) : Result<Guid option, string> =
+    member this.TryGetJwtGuid(userEmail: string) : Task<Result<Guid option, string>> =
         try
             use connection = new MySqlConnection(connectionStringBuilder.ToString())
             connection.Open()
@@ -95,11 +96,11 @@ type DbUserService(
             | false ->
                 Ok None
         with
-        | ex ->
-            Error ex.Message
+        | ex -> Error ex.Message
+        |> Task.FromResult
         
         
-    member this.GenerateNewRefreshGuid(userEmail: string) : Result<Guid, string> =
+    member this.GenerateNewRefreshGuid(userEmail: string) : Task<Result<Guid, string>> =
         try
             use connection = new MySqlConnection(connectionStringBuilder.ToString())
             connection.Open()
@@ -126,10 +127,11 @@ type DbUserService(
         with
         | ex ->
             Error ex.Message
+        |> Task.FromResult
     
     
     // Matches without password, only use in handlers/endpoints where the user is already authenticated.
-    member internal this.TryGetUserByEmail(email: string) = 
+    member internal this.TryGetUserByEmail(email: string) : Task<Result<User, string>> = 
         try
             use connection = new MySqlConnection(connectionStringBuilder.ToString())
             connection.Open()
@@ -150,9 +152,10 @@ type DbUserService(
         with
         | ex ->
             Error ex.Message
+        |> Task.FromResult
     
     
-    member this.TryGetUserByCredentials(email: string, password: string) =
+    member this.TryGetUserByCredentials(email: string, password: string) : Task<Result<User, string>> =
         try
             use connection = new MySqlConnection(connectionStringBuilder.ToString())
             connection.Open()
@@ -174,13 +177,10 @@ type DbUserService(
         with
         | ex ->
             Error ex.Message
+        |> Task.FromResult
     
     
-    member this.TryCreateUser(firstName: string,
-                              lastName: string,
-                              email: string,
-                              password: string,
-                              isEmailEnabled: bool) : Result<User, string> =
+    member this.TryCreateUser(firstName: string, lastName: string, email: string, password: string, isEmailEnabled: bool) : Task<Result<User, string>> =
         let newUser =
             { Id = Guid.NewGuid()
               FirstName = firstName
@@ -223,9 +223,10 @@ type DbUserService(
         with
         | ex ->
             Error ex.Message
+        |> Task.FromResult
         
         
-    member this.TryDeleteUser(email: string) =
+    member this.TryDeleteUser(email: string) : Task<Result<unit, string>> =
         try
             use connection = new MySqlConnection(connectionStringBuilder.ToString())
             connection.Open()
@@ -244,6 +245,7 @@ type DbUserService(
         with
         | ex ->
             Error ex.Message
+        |> Task.FromResult
         
     /// <remarks>
     /// A change in the user's ID will be ignored. The function will not error
@@ -281,11 +283,8 @@ type DbUserService(
             | ex ->
                 Error ex.Message
         
-        
-        // Main thingy
-        task {
-            return
-                this.TryGetUserByEmail(userEmailToEdit)
-                |> Result.map transformUser
-                |> Result.bind editUserInfoInDb
+        taskResult {
+            let! user = this.TryGetUserByEmail(userEmailToEdit)
+            let newUser = transformUser user
+            return! editUserInfoInDb newUser
         }

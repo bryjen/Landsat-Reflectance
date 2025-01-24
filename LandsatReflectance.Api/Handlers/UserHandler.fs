@@ -5,6 +5,7 @@ open System.IO
 open System.Text.Json
 open System.Security.Claims
 
+open System.Threading.Tasks
 open LandsatReflectance.Api.Services
 open Microsoft.FSharp.Core
 open Microsoft.AspNetCore.Http
@@ -60,17 +61,6 @@ module private Helpers =
         | ex ->
             Error ex.Message
             
-(*
-    let tryCreateLoginData (dbUserService: DbUserService) (authTokenOptions: AuthTokenOptions) (user: User) =
-        result {
-            let! refreshGuid = dbUserService.GenerateNewRefreshGuid(user.Email)
-            let accessToken = createAccessToken authTokenOptions.SigningKey user
-            let refreshToken = createRefreshToken authTokenOptions.SigningKey refreshGuid user
-            return { AccessToken = accessToken
-                     RefreshToken = refreshToken }
-        }
-*)
-
         
         
 [<RequireQualifiedAccess>]
@@ -81,49 +71,52 @@ module UserLoginPost =
           Password: string }
     
     let rec handler (next: HttpFunc) (ctx: HttpContext) : HttpFuncResult =
-        task {
-            let requestId: Guid =
-                match ctx.Items.TryGetValue("requestId") with
-                | true, value -> value :?> Guid
-                | false, _ -> Guid.Empty
-            
-            let dbUserService = ctx.RequestServices.GetRequiredService<DbUserService>()
-            let authTokenOptions = ctx.RequestServices.GetRequiredService<IOptions<AuthTokenOptions>>().Value
-            let jsonSerializerOptions = ctx.RequestServices.GetRequiredService<IOptions<JsonOptions>>().Value.SerializerOptions
-            
-            use requestBodyReader = new StreamReader(ctx.Request.Body)
-            let! requestBody = requestBodyReader.ReadToEndAsync()
-            let registerUserRequest = JsonSerializer.Deserialize<LoginUserRequest>(requestBody, jsonSerializerOptions)
-            
-            let email = registerUserRequest.Email
-            let password = registerUserRequest.Password
-            
-            return!
-                dbUserService.TryGetUserByCredentials(email, password)
-                |> Result.bind (tryCreateLoginData dbUserService authTokenOptions)
-                |> function
-                    | Ok loginUserResponse -> 
-                        let asApiResponseObj =
-                            { RequestGuid = requestId
-                              ErrorMessage = None
-                              Data = Some loginUserResponse }
-                        (Successful.ok (json<ApiResponse<LoginData>> asApiResponseObj)) next ctx
-                    | Error error ->
-                        let asApiResponseObj =
-                            { RequestGuid = requestId
-                              ErrorMessage = Some error
-                              Data = None }
-                        (Successful.ok (json<ApiResponse<obj>> asApiResponseObj)) next ctx
-        }
+        let requestId: Guid =
+            match ctx.Items.TryGetValue("requestId") with
+            | true, value -> value :?> Guid
+            | false, _ -> Guid.Empty
         
-    and tryCreateLoginData (dbUserService: DbUserService) (authTokenOptions: AuthTokenOptions) (user: User) =
-        result {
+        let rawData : TaskResult<LoginData, string> = 
+            taskResult {
+                let dbUserService = ctx.RequestServices.GetRequiredService<DbUserService>()
+                let authTokenOptions = ctx.RequestServices.GetRequiredService<IOptions<AuthTokenOptions>>().Value
+                let jsonSerializerOptions = ctx.RequestServices.GetRequiredService<IOptions<JsonOptions>>().Value.SerializerOptions
+                
+                use requestBodyReader = new StreamReader(ctx.Request.Body)
+                let! requestBody = requestBodyReader.ReadToEndAsync()
+                let registerUserRequest = JsonSerializer.Deserialize<LoginUserRequest>(requestBody, jsonSerializerOptions)
+                
+                let! user = dbUserService.TryGetUserByCredentials(registerUserRequest.Email, registerUserRequest.Password)
+                return! tryCreateLoginData dbUserService authTokenOptions user
+            }
+            
+        Task.bind (transformRawData next ctx requestId) rawData
+        
+        
+    and private tryCreateLoginData (dbUserService: DbUserService) (authTokenOptions: AuthTokenOptions) (user: User) =
+        taskResult {
             let! refreshGuid = dbUserService.GenerateNewRefreshGuid(user.Email)
             let accessToken = createAccessToken authTokenOptions.SigningKey user
             let refreshToken = createRefreshToken authTokenOptions.SigningKey refreshGuid user
             return { AccessToken = accessToken
                      RefreshToken = refreshToken }
         }
+        
+    and private transformRawData (next: HttpFunc) (ctx: HttpContext) (requestId: Guid) (result: Result<LoginData, string>) : HttpFuncResult =
+        match result with
+        | Ok loginUserResponse -> 
+            let asApiResponseObj =
+                { RequestGuid = requestId
+                  ErrorMessage = None
+                  Data = Some loginUserResponse }
+            (Successful.ok (json<ApiResponse<LoginData>> asApiResponseObj)) next ctx
+        | Error error ->
+            let asApiResponseObj =
+                { RequestGuid = requestId
+                  ErrorMessage = Some error
+                  Data = None }
+            (Successful.ok (json<ApiResponse<obj>> asApiResponseObj)) next ctx
+        
        
        
 module RefreshTokenLoginPost =
@@ -132,49 +125,55 @@ module RefreshTokenLoginPost =
         { RefreshToken: string }
         
     let rec handler (next: HttpFunc) (ctx: HttpContext) : HttpFuncResult =
-        task {
-            let requestId: Guid =
-                match ctx.Items.TryGetValue("requestId") with
-                | true, value -> value :?> Guid
-                | false, _ -> Guid.Empty
+        let requestId: Guid =
+            match ctx.Items.TryGetValue("requestId") with
+            | true, value -> value :?> Guid
+            | false, _ -> Guid.Empty
+        
+        let rawData : TaskResult<string, string> = 
+            taskResult {
+                let dbUserService = ctx.RequestServices.GetRequiredService<DbUserService>()
+                let authTokenOptions = ctx.RequestServices.GetRequiredService<IOptions<AuthTokenOptions>>().Value
+                let jsonSerializerOptions = ctx.RequestServices.GetRequiredService<IOptions<JsonOptions>>().Value.SerializerOptions
+                
+                use requestBodyReader = new StreamReader(ctx.Request.Body)
+                let! requestBody = requestBodyReader.ReadToEndAsync()
+                let req = JsonSerializer.Deserialize<RefreshTokenLoginRequest>(requestBody, jsonSerializerOptions)
+                
+                let! refreshTokenParseResults = tryParseRefreshToken authTokenOptions.SigningKey req.RefreshToken
+                let! userEmail = validateRefreshGuidWithDbValue dbUserService refreshTokenParseResults
+                let! user = dbUserService.TryGetUserByEmail userEmail
+                return createAccessToken authTokenOptions.SigningKey user
+            }
             
-            let dbUserService = ctx.RequestServices.GetRequiredService<DbUserService>()
-            let authTokenOptions = ctx.RequestServices.GetRequiredService<IOptions<AuthTokenOptions>>().Value
-            let jsonSerializerOptions = ctx.RequestServices.GetRequiredService<IOptions<JsonOptions>>().Value.SerializerOptions
-            
-            use requestBodyReader = new StreamReader(ctx.Request.Body)
-            let! requestBody = requestBodyReader.ReadToEndAsync()
-            let req = JsonSerializer.Deserialize<RefreshTokenLoginRequest>(requestBody, jsonSerializerOptions)
-            
+        Task.bind (transformRawData next ctx requestId) rawData
+        
+        
+    and private validateRefreshGuidWithDbValue (dbUserService: DbUserService) (refreshTokenParseResults: RefreshTokenParseResults) =
+        taskResult {
+            let! jwtGuid = dbUserService.TryGetJwtGuid(refreshTokenParseResults.Email)
             return!
-                tryParseRefreshToken authTokenOptions.SigningKey req.RefreshToken
-                |> Result.bind (validateRefreshGuidWithDbValue dbUserService)
-                |> Result.bind dbUserService.TryGetUserByEmail
-                |> Result.map (createAccessToken authTokenOptions.SigningKey)
-                |> function
-                    | Ok accessToken ->
-                        let asApiResponseObj =
-                            { RequestGuid = requestId
-                              ErrorMessage = None
-                              Data = Some accessToken }
-                        (Successful.ok (json<ApiResponse<string>> asApiResponseObj)) next ctx
-                    | Error error ->
-                        let asApiResponseObj =
-                            { RequestGuid = requestId
-                              ErrorMessage = Some error
-                              Data = None }
-                        (Successful.ok (json<ApiResponse<obj>> asApiResponseObj)) next ctx
+                match jwtGuid with
+                | Some guid when guid = refreshTokenParseResults.RefreshGuid -> Ok refreshTokenParseResults.Email
+                | Some _ -> Error "Refresh token id does not match the existing one."
+                | None -> Error "No refresh token id present."
         }
         
-    and validateRefreshGuidWithDbValue (dbUserService: DbUserService) (refreshTokenParseResults: RefreshTokenParseResults) =
-        match dbUserService.TryGetJwtGuid(refreshTokenParseResults.Email) with
-        | Ok guidOption ->
-            match guidOption with
-            | Some guid when guid = refreshTokenParseResults.RefreshGuid -> Ok refreshTokenParseResults.Email
-            | Some _ -> Error "Refresh token id does not match the existing one."
-            | None -> Error "No refresh token id present."
+    and private transformRawData (next: HttpFunc) (ctx: HttpContext) (requestId: Guid) (accessTokenResult: Result<string, string>) : HttpFuncResult =
+        match accessTokenResult with
+        | Ok accessToken ->
+            let asApiResponseObj =
+                { RequestGuid = requestId
+                  ErrorMessage = None
+                  Data = Some accessToken }
+            (Successful.ok (json<ApiResponse<string>> asApiResponseObj)) next ctx
         | Error error ->
-            Error error
+            let asApiResponseObj =
+                { RequestGuid = requestId
+                  ErrorMessage = Some error
+                  Data = None }
+            (Successful.ok (json<ApiResponse<obj>> asApiResponseObj)) next ctx
+        
         
        
 [<RequireQualifiedAccess>]
@@ -188,44 +187,35 @@ module UserCreatePost =
           IsEmailEnabled: bool }
     
     let rec handler (next: HttpFunc) (ctx: HttpContext) : HttpFuncResult =
-        task {
-            let requestId: Guid =
-                match ctx.Items.TryGetValue("requestId") with
-                | true, value -> value :?> Guid
-                | false, _ -> Guid.Empty
-            
-            let dbUserService = ctx.RequestServices.GetRequiredService<DbUserService>()
-            let authTokenOptions = ctx.RequestServices.GetRequiredService<IOptions<AuthTokenOptions>>().Value
-            let jsonSerializerOptions = ctx.RequestServices.GetRequiredService<IOptions<JsonOptions>>().Value.SerializerOptions
-            
-            use requestBodyReader = new StreamReader(ctx.Request.Body)
-            let! requestBody = requestBodyReader.ReadToEndAsync()
-            let req = JsonSerializer.Deserialize<CreateUserRequest>(requestBody, jsonSerializerOptions)
-           
-            return!
-                dbUserService.TryCreateUser(req.FirstName, req.LastName, req.Email, req.Password, req.IsEmailEnabled)
-                |> Result.bind (tryCreateLoginData dbUserService authTokenOptions)
-                |> function
-                    | Ok loginData -> 
-                        let asApiResponseObj =
-                            { RequestGuid = requestId
-                              ErrorMessage = None
-                              Data = Some loginData }
-                        (Successful.ok (json<ApiResponse<LoginData>> asApiResponseObj)) next ctx
-                    | Error error ->
-                        let asApiResponseObj =
-                            { RequestGuid = requestId
-                              ErrorMessage = Some error
-                              Data = None }
-                        (Successful.ok (json<ApiResponse<obj>> asApiResponseObj)) next ctx
-        }
+        let requestId: Guid =
+            match ctx.Items.TryGetValue("requestId") with
+            | true, value -> value :?> Guid
+            | false, _ -> Guid.Empty
         
-    and tryCreateLoginData (dbUserService: DbUserService) (authTokenOptions: AuthTokenOptions) (user: User) =
-        result {
+        let rawData : TaskResult<LoginData, string> = 
+            taskResult {
+                let dbUserService = ctx.RequestServices.GetRequiredService<DbUserService>()
+                let authTokenOptions = ctx.RequestServices.GetRequiredService<IOptions<AuthTokenOptions>>().Value
+                let jsonSerializerOptions = ctx.RequestServices.GetRequiredService<IOptions<JsonOptions>>().Value.SerializerOptions
+                
+                use requestBodyReader = new StreamReader(ctx.Request.Body)
+                let! requestBody = requestBodyReader.ReadToEndAsync()
+                let req = JsonSerializer.Deserialize<CreateUserRequest>(requestBody, jsonSerializerOptions)
+                
+                let! newUser = dbUserService.TryCreateUser(req.FirstName, req.LastName, req.Email, req.Password, req.IsEmailEnabled)
+                let! loginData = tryCreateLoginData dbUserService authTokenOptions newUser
+                return loginData
+            }
+            
+        Task.bind (transformRawData next ctx requestId) rawData
+        
+        
+    and private tryCreateLoginData (dbUserService: DbUserService) (authTokenOptions: AuthTokenOptions) (user: User) : TaskResult<LoginData, string> =
+        taskResult {
             let! refreshGuidOption = dbUserService.TryGetJwtGuid(user.Email)
             let! refreshGuid =
                 match refreshGuidOption with
-                | Some guid -> Ok guid
+                | Some guid -> Ok guid |> Task.FromResult
                 | None -> dbUserService.GenerateNewRefreshGuid(user.Email)
             
             let accessToken = createAccessToken authTokenOptions.SigningKey user
@@ -233,7 +223,23 @@ module UserCreatePost =
             return { AccessToken = accessToken
                      RefreshToken = refreshToken }
         }
+        
+    and private transformRawData (next: HttpFunc) (ctx: HttpContext) (requestId: Guid) (loginDataResult: Result<LoginData, string>) : HttpFuncResult =
+        match loginDataResult with
+        | Ok loginData ->
+            let asApiResponseObj =
+                { RequestGuid = requestId
+                  ErrorMessage = None
+                  Data = Some loginData }
+            (Successful.ok (json<ApiResponse<LoginData>> asApiResponseObj)) next ctx
+        | Error error ->
+            let asApiResponseObj =
+                { RequestGuid = requestId
+                  ErrorMessage = Some error
+                  Data = None }
+            (Successful.ok (json<ApiResponse<obj>> asApiResponseObj)) next ctx
        
+        
         
 [<RequireQualifiedAccess>]
 module UserPatch =
@@ -245,7 +251,33 @@ module UserPatch =
           Password: string | null
           IsEmailEnabled: Nullable<bool> }
         
-    let private transformUserWithPatch (patchUserReq: PatchUserRequest) (user: User): User =
+    let rec handler (next: HttpFunc) (ctx: HttpContext) : HttpFuncResult =
+        let requestId: Guid =
+            match ctx.Items.TryGetValue("requestId") with
+            | true, value -> value :?> Guid
+            | false, _ -> Guid.Empty
+        
+        let rawData : TaskResult<string, string> = 
+            taskResult {
+                let dbUserService = ctx.RequestServices.GetRequiredService<DbUserService>()
+                let authTokenOptions = ctx.RequestServices.GetRequiredService<IOptions<AuthTokenOptions>>().Value
+                let jsonSerializerOptions = ctx.RequestServices.GetRequiredService<IOptions<JsonOptions>>().Value.SerializerOptions
+                
+                use requestBodyReader = new StreamReader(ctx.Request.Body)
+                let! requestBody = requestBodyReader.ReadToEndAsync()
+                let patchUserReq = JsonSerializer.Deserialize<PatchUserRequest>(requestBody, jsonSerializerOptions)
+                
+                let! userEmail = tryGetUserEmail ctx
+                let transformUser = transformUserWithPatch patchUserReq
+                let! editedUser = dbUserService.TryEditUser(transformUser, userEmail)
+                let accessToken = createAccessToken authTokenOptions.SigningKey editedUser
+                return accessToken
+            }
+            
+        Task.bind (transformRawData next ctx requestId) rawData
+        
+        
+    and private transformUserWithPatch (patchUserReq: PatchUserRequest) (user: User): User =
         let newEmail = if isNull patchUserReq.Email then user.Email else patchUserReq.Email
         { user with
             Email = newEmail
@@ -254,13 +286,13 @@ module UserPatch =
             PasswordHash = if isNull patchUserReq.Password then user.PasswordHash else (hashPassword newEmail patchUserReq.Password)
             IsEmailEnabled = if patchUserReq.IsEmailEnabled.HasValue then patchUserReq.IsEmailEnabled.Value else user.IsEmailEnabled }
         
-    let private transformResult next ctx requestId result : HttpFuncResult =
+    and private transformRawData next ctx requestId result : HttpFuncResult =
         match result with
-        | Ok reAuthToken -> 
+        | Ok refreshedAccessToken -> 
             let asApiResponseObj =
                 { RequestGuid = requestId
                   ErrorMessage = None
-                  Data = Some reAuthToken }
+                  Data = Some refreshedAccessToken }
             (Successful.ok (json<ApiResponse<string>> asApiResponseObj)) next ctx
         | Error error ->
             let asApiResponseObj =
@@ -269,59 +301,38 @@ module UserPatch =
                   Data = None }
             (Successful.ok (json<ApiResponse<obj>> asApiResponseObj)) next ctx
         
-    let handler (next: HttpFunc) (ctx: HttpContext) : HttpFuncResult =
-        task {
-            let dbUserService = ctx.RequestServices.GetRequiredService<DbUserService>()
-            let authTokenOptions = ctx.RequestServices.GetRequiredService<IOptions<AuthTokenOptions>>().Value
-            let jsonSerializerOptions = ctx.RequestServices.GetRequiredService<IOptions<JsonOptions>>().Value.SerializerOptions
-            
-            let requestId: Guid =
-                match ctx.Items.TryGetValue("requestId") with
-                | true, value -> value :?> Guid
-                | false, _ -> Guid.Empty
-                
-            use requestBodyReader = new StreamReader(ctx.Request.Body)
-            let! requestBody = requestBodyReader.ReadToEndAsync()
-            let patchUserReq = JsonSerializer.Deserialize<PatchUserRequest>(requestBody, jsonSerializerOptions)
-            
-            let transformUser = transformUserWithPatch patchUserReq
-            let tryEditUser userEmail = dbUserService.TryEditUser(transformUser, userEmail)
-            let createJwtToken = createAccessToken authTokenOptions.SigningKey
-            
-            return!
-                tryGetUserEmail ctx
-                |> TaskResult.ofResult
-                |> TaskResult.bind tryEditUser
-                |> TaskResult.map createJwtToken 
-                |> Task.bind (transformResult next ctx requestId)
-        }
         
         
 [<RequireQualifiedAccess>]
 module UserDelete =
-    let handler (next: HttpFunc) (ctx: HttpContext) =
-        task {
-            let requestId: Guid =
-                match ctx.Items.TryGetValue("requestId") with
-                | true, value -> value :?> Guid
-                | false, _ -> Guid.Empty
+    let rec handler (next: HttpFunc) (ctx: HttpContext) =
+        let requestId: Guid =
+            match ctx.Items.TryGetValue("requestId") with
+            | true, value -> value :?> Guid
+            | false, _ -> Guid.Empty
+        
+        let rawData : TaskResult<unit, string> = 
+            taskResult {
+                let dbUserService = ctx.RequestServices.GetRequiredService<DbUserService>()
+                let! userEmail = tryGetUserEmail ctx
+                do! dbUserService.TryDeleteUser(userEmail)
+                return ()
+            }
             
-            let dbUserService = ctx.RequestServices.GetRequiredService<DbUserService>()
-           
-            return!
-                tryGetUserEmail ctx
-                |> Result.bind dbUserService.TryDeleteUser
-                |> function
-                    | Ok _ -> 
-                        let asApiResponseObj =
-                            { RequestGuid = requestId
-                              ErrorMessage = None
-                              Data = Some "Successfully deleted user" }
-                        (Successful.ok (json<ApiResponse<string>> asApiResponseObj)) next ctx
-                    | Error error ->
-                        let asApiResponseObj =
-                            { RequestGuid = requestId
-                              ErrorMessage = Some error
-                              Data = None }
-                        (Successful.ok (json<ApiResponse<obj>> asApiResponseObj)) next ctx
-        }
+        Task.bind (transformRawData next ctx requestId) rawData
+        
+
+    and private transformRawData next ctx requestId result : HttpFuncResult =
+        match result with
+        | Ok _ -> 
+            let asApiResponseObj =
+                { RequestGuid = requestId
+                  ErrorMessage = None
+                  Data = Some "Successfully deleted user." }
+            (Successful.ok (json<ApiResponse<string>> asApiResponseObj)) next ctx
+        | Error error ->
+            let asApiResponseObj =
+                { RequestGuid = requestId
+                  ErrorMessage = Some error
+                  Data = None }
+            (Successful.ok (json<ApiResponse<obj>> asApiResponseObj)) next ctx
