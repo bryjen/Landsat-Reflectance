@@ -7,11 +7,49 @@ namespace LandsatReflectance.UI.Services.Api;
 
 
 
-public class LocationData
+/// <summary>
+/// Query is Lat/Long, result is location information (addresses).
+/// </summary>
+public class ReverseGeocodingData
 {
-    public string City { get; set; } = string.Empty;
-    public string Country { get; set; } = string.Empty;
+    public string? City { get; set; }
+    public string? Country { get; set; }
+
+    
+    public override string ToString()
+    {
+        return (City, Country) switch
+        {
+            ({ } city, { } country) => $"{city}, {country}",
+            (null, { } country) => country,
+            ({ } city, null) => city,
+            _ => string.Empty,
+        };
+    }
 }
+
+/// <summary>
+/// Query is an address, result is location information (more specific addresses & coordinates).
+/// </summary>
+public class ForwardGeocodingData
+{
+    public string FormattedLocation { get; set; } = string.Empty;
+    
+    public double Latitude { get; set; }
+    public double Longitude { get; set; }
+
+
+    public override string ToString()
+    {
+        return $"[{Latitude:F2}°N, {Longitude:F2}°W] {FormattedLocation}";
+    }
+    
+    public static string ToString(ForwardGeocodingData forwardGeocodingData)
+    {
+        return forwardGeocodingData.ToString();
+    }
+}
+
 
 
 // Uses OpenCage's Geocoding API.
@@ -37,7 +75,8 @@ public class GeocodingService
         _httpClient.BaseAddress = new Uri("https://api.opencagedata.com/geocode/v1/");
     }
 
-    public async Task<LocationData> GetNearestCity(LatLong latLong)
+    
+    public async Task<ReverseGeocodingData> GetNearestCity(LatLong latLong)
     {
         _httpClient.DefaultRequestHeaders.Authorization = null;  // clear auth header, not needed
 
@@ -63,22 +102,73 @@ public class GeocodingService
         {
             throw new JsonException("Could not find the property \"/results[0]/components\".");
         }
-        
-        
-        if (!componentsJsonElement.TryGetProperty("city", out var cityJsonElement))
+
+
+        string? city = null;
+        if (componentsJsonElement.TryGetProperty("city", out var cityJsonElement))
         {
-            throw new JsonException("Could not find the property \"/results[0]/components/city\".");
+            city = cityJsonElement.GetString();
         }
         
-        if (!componentsJsonElement.TryGetProperty("country", out var countryJsonElement))
+        string? country = null;
+        if (componentsJsonElement.TryGetProperty("country", out var countryJsonElement))
         {
-            throw new JsonException("Could not find the property \"/results[0]/components/country\".");
+            country = countryJsonElement.GetString();
         }
 
-        return new LocationData
+        return new ReverseGeocodingData
         {
-            City = cityJsonElement.GetString() ?? string.Empty,
-            Country = countryJsonElement.GetString() ?? string.Empty
+            City = city,
+            Country = country
         };
+    }
+
+    public async Task<IEnumerable<ForwardGeocodingData>> GetRelatedAddresses(string addressStr, CancellationToken? cancellationToken = null)
+    {
+        _httpClient.DefaultRequestHeaders.Authorization = null;  // clear auth header, not needed
+        cancellationToken ??= CancellationToken.None;
+
+        var response = await _httpClient.GetAsync($"json?q={Uri.EscapeDataString(addressStr)}&key={ApiKey}", cancellationToken.Value);
+        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken.Value);
+
+        var asJsonElement = JsonDocument.Parse(responseBody).RootElement;
+        
+        if (!asJsonElement.TryGetProperty("results", out var resultsJsonElement))
+        {
+            return [];
+        }
+
+        var resultsAsList = resultsJsonElement.EnumerateArray().ToList();
+        if (resultsAsList.Count == 0)
+        {
+            return [];
+        }
+
+        var datas = new List<ForwardGeocodingData>();
+        foreach (var locationDataJsonElement in resultsAsList)
+        {
+            if (!locationDataJsonElement.TryGetProperty("formatted", out var formattedLocationJsonElement))
+                continue;
+            
+            
+            if (!locationDataJsonElement.TryGetProperty("geometry", out var geometryJsonElement))
+                continue;
+            
+            if (!geometryJsonElement.TryGetProperty("lat", out var latJsonElement) || latJsonElement.ValueKind is not JsonValueKind.Number)
+                continue;
+            
+            if (!geometryJsonElement.TryGetProperty("lng", out var lngJsonElement) || lngJsonElement.ValueKind is not JsonValueKind.Number)
+                continue;
+
+            var data = new ForwardGeocodingData
+            {
+                FormattedLocation = formattedLocationJsonElement.GetString() ?? string.Empty,
+                Latitude = latJsonElement.GetDouble(),
+                Longitude = lngJsonElement.GetDouble(),
+            };
+            datas.Add(data);
+        }
+
+        return datas;
     }
 }

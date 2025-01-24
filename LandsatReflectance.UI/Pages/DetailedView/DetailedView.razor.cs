@@ -98,7 +98,7 @@ public partial class DetailedView : ComponentBase
     private string? _errorMsg;
 
     private int _currentSceneIndex;
-    private LocationData? _locationData;
+    private ReverseGeocodingData? _locationData;
     private Dictionary<SceneData, string> _sceneDataToImgStrMap = new();
 
 

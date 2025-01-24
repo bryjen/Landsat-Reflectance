@@ -1,6 +1,7 @@
 ﻿@page "/"
 @using LandsatReflectance.UI.Models
 @using LandsatReflectance.UI.Services.Api
+@using LandsatReflectance.UI.Components
 
 <PageTitle>Home</PageTitle>
 
@@ -9,22 +10,7 @@
     @RenderTargetsList()
 </div>
 
-@*
-@if (CurrentUserService.IsAuthenticated)
-{
-    <div class="pa-4">
-        @RenderTargetsList()
-    </div>
-}
-else
-{
-    <div class="flex items-center justify-center pa-4 w-full h-full">
-        <div class="flex items-center justify-center pa-4 mx-36 bg-[#2a313c] border border-[#353c44]">
-            Create an account to save your targets!
-        </div>
-    </div>
-}
-*@
+
 
 @code {
 
@@ -32,33 +18,39 @@ else
     private RenderFragment RenderTargetsList() => __builder =>
 @* ReSharper restore UnusedParameter.Local *@
     {
-        <div class="flex flex-col gap-3 pa-4 mx-24 bg-[#2a313c] border border-[#353c44]">
-            <div class="flex justify-between items-center">
-                <p class="text-xl font-bold">
-                    <MudIcon Size="Size.Large" Icon="@Icons.Material.Filled.SatelliteAlt" Class="pr-2"/>
-                    Your Targets
-                </p>
-                
-                <MudIconButton Size="@Size.Small" Icon="@Icons.Material.Filled.Refresh"
-                               OnClick="@ReInitDictionary" />
-            </div>
+        <div class="grid grid-cols-[70%_30%]">
+            
+            <div class="flex flex-col gap-3 mx-4 mt-4 pa-4 bg-[#2a313c] border border-[#353c44]">
+                <div class="flex justify-between items-center">
+                    <p class="text-xl font-bold">
+                        <MudIcon Size="Size.Large" Icon="@Icons.Material.Filled.SatelliteAlt" Class="pr-2"/>
+                        Your Targets
+                    </p>
 
-            <div class="flex flex-col gap-3">
-                @if (CurrentTargetsService.IsLoadingTargets && CurrentUserService.IsAuthenticated)
-                {
-                    <div class="flex flex-col gap-4 justify-center items-center">
-                        <p class="font-bold text-lg">Loading your targets ...</p>
-                        <MudProgressLinear Indeterminate Color="@Color.Primary"/>
-                    </div>
-                }
-                else
-                {
-                    @foreach (var (target, additionalTargetInformation) in _targetSceneDataMap.OrderBy(kv => kv.Key.Id))
+                    <MudIconButton Size="@Size.Small" Icon="@Icons.Material.Filled.Refresh"
+                                   OnClick="@ReInitDictionary"/>
+                </div>
+
+                <div class="flex flex-col gap-3">
+                    @if (CurrentTargetsService.IsLoadingTargets && CurrentUserService.IsAuthenticated)
                     {
-                        @RenderTargetItem(target, additionalTargetInformation)
+                        <div class="flex flex-col gap-4 justify-center items-center">
+                            <p class="font-bold text-lg">Loading your targets ...</p>
+                            <MudProgressLinear Indeterminate Color="@Color.Primary"/>
+                        </div>
                     }
-                }
+                    else
+                    {
+                        @foreach (var (target, additionalTargetInformation) in _targetSceneDataMap.OrderBy(kv => kv.Key.Id))
+                        {
+                            @RenderTargetItem(target, additionalTargetInformation)
+                        }
+                    }
+                </div>
             </div>
+            
+            <AddTarget/>
+            
         </div>
     };
 
@@ -152,6 +144,8 @@ else
     private RenderFragment RenderLocationData(Target target, AdditionalTargetInformation additionalTargetInformation) => __builder =>
 @* ReSharper restore UnusedParameter.Local *@
     {
+        @*
+*@
         switch (additionalTargetInformation.LoadedLocationData, additionalTargetInformation.LocationData)
         {
             case (true, null):
@@ -166,7 +160,7 @@ else
                              Size="@Size.Small"/>
                     
                     <a class="font-bold text-[0.55rem] no-underline hover:underline" href="@googleMapsUri" target="_blank">
-                        @($"{locationData.City}, {locationData.Country}")
+                        @locationData
                     </a>
                 </div>
                 break;

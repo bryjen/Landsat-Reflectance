@@ -18,7 +18,7 @@ class AdditionalTargetInformation
     public SceneData? SceneData { get; set; }
     
     public bool LoadedLocationData { get; set; }
-    public LocationData? LocationData { get; set; }
+    public ReverseGeocodingData? LocationData { get; set; }
 }
 
 public partial class Home : ComponentBase
@@ -130,7 +130,7 @@ public partial class Home : ComponentBase
     private async void TryGetLocationDataFromTarget(Target target)
 // ReSharper restore AsyncVoidMethod
     {
-        var addLocationDataIfApplicable = async (LocationData locationData) =>
+        var addLocationDataIfApplicable = async (ReverseGeocodingData locationData) =>
         {
             if (!_targetSceneDataMap.TryGetValue(target, out var additionalTargetInformation))
             {
@@ -145,7 +145,7 @@ public partial class Home : ComponentBase
         var targetKey = $"{target.Id.ToString()};{FormatCoordinates(target.Latitude, target.Longitude)};LocationData";
         if (SessionStorageService.ContainKey(targetKey))
         {
-            var locationData = SessionStorageService.GetItem<LocationData>(targetKey);
+            var locationData = SessionStorageService.GetItem<ReverseGeocodingData>(targetKey);
             await addLocationDataIfApplicable(locationData);
             return;
         }
@@ -320,6 +320,8 @@ public partial class Home : ComponentBase
         // NavigationManager.NavigateTo($"TargetDetails?{asQueryParametersUrl}");
         NavigationManager.NavigateTo($"DetailedView?{asQueryParametersUrl}");
     }
+    
+    
 
     private static string FormatCoordinates(double latitude, double longitude) =>
         $"{latitude:F}N+{longitude:F}W";

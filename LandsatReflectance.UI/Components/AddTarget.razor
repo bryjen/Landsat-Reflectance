@@ -1,0 +1,51 @@
+﻿@using LandsatReflectance.UI.Services.Api
+
+
+<div class="flex flex-col mx-4 mt-4 pa-4 h-fit bg-[#2a313c] border border-[#353c44]">
+    <div class="flex justify-start items-center mb-4">
+        <p class="text-xl font-bold">
+            <MudIcon Size="Size.Large" Icon="@Icons.Material.Filled.Add" Class="pr-2"/>
+            Add Target
+        </p>
+    </div>
+    
+    <MudAutocomplete T="@ForwardGeocodingData"
+                     @bind-Value="@_selectedForwardGeocodingData"
+                     ShowProgressIndicator
+                     Clearable
+                     ResetValueOnEmptyText
+                     Placeholder="ex. 'Paris'"
+                     Label="Search for a location"
+                     Variant="@Variant.Filled"
+                     Adornment="Adornment.End"
+                     AdornmentIcon="@Icons.Material.Filled.LocationOn"
+                     AdornmentColor="@Color.Primary"
+                     SearchFunc="@SearchForAddresses"
+                     ToStringFunc="@ForwardGeocodingData.ToString"
+                     Class="">
+        <ItemTemplate>
+            <div class="flex flex-col">
+                <p class="font-bold">
+                    @context.FormattedLocation
+                </p>
+                <p class="text-xs">
+                    @($"{context.Latitude:F2}°N, {context.Longitude:F2}°W")
+                </p>
+            </div>
+        </ItemTemplate>
+    </MudAutocomplete>
+    
+    @if (_selectedForwardGeocodingData is null)
+    {
+        <p class="w-full my-4 text-center font-bold">OR</p>
+
+        <div class="h-full flex items-center justify-center">
+            <MudButton Variant="@Variant.Filled"
+                       Color="Color.Info"
+                       OnClick="@(_ => NavigationManager.NavigateTo("/Map"))">
+                Open Map
+            </MudButton>
+        </div>
+    }
+    
+</div>
