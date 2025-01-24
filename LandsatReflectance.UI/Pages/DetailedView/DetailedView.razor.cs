@@ -87,7 +87,7 @@ public partial class DetailedView : ComponentBase
     [CascadingParameter(Name = "OnUnhandledError")]
     public EventCallback<(Exception, Func<Task>?)> OnUnhandledError { get; set; }
     
-    [CascadingParameter]
+    [CascadingParameter(Name = "FullPageLoadingOverlay")]
     public required FullPageLoadingOverlay FullPageLoadingOverlay { get; set; }
 
     

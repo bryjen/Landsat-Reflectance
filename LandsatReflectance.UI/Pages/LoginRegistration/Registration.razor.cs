@@ -67,7 +67,7 @@ public partial class Registration : ComponentBase
     [Parameter]
     public string Email { get; set; } = string.Empty;
     
-    [CascadingParameter]
+    [CascadingParameter(Name = "FullPageLoadingOverlay")]
     public required FullPageLoadingOverlay FullPageLoadingOverlay { get; set; }
     
     

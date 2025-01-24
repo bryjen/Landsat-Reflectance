@@ -71,7 +71,7 @@ public partial class Map : ComponentBase
     public required ApiTargetService ApiTargetService { get; set; } 
     
     
-    [CascadingParameter]
+    [CascadingParameter(Name = "FullPageLoadingOverlay")]
     public required FullPageLoadingOverlay FullPageLoadingOverlay { get; set; } 
     
     

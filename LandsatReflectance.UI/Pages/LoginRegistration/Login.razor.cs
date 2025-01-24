@@ -30,7 +30,7 @@ public partial class Login : ComponentBase
     public required CurrentUserService CurrentUserService { get; set; }
     
     
-    [CascadingParameter]
+    [CascadingParameter(Name = "FullPageLoadingOverlay")]
     public required FullPageLoadingOverlay FullPageLoadingOverlay { get; set; }
     
     private string m_email = string.Empty;

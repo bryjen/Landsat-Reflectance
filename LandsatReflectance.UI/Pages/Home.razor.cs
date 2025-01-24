@@ -51,7 +51,7 @@ public partial class Home : ComponentBase
     public required GeocodingService GeocodingService { get; set; }
     
     
-    [CascadingParameter]
+    [CascadingParameter(Name = "FullPageLoadingOverlay")]
     public required FullPageLoadingOverlay FullPageLoadingOverlay { get; set; }
 
 
