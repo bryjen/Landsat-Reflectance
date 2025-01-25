@@ -109,6 +109,22 @@
             "Debug",
             "Release"
           ]
+        },
+        "DockerHubPassword": {
+          "type": "string",
+          "default": "Secrets must be entered via 'nuke :secrets [profile]'"
+        },
+        "DockerHubUsername": {
+          "type": "string",
+          "default": "Secrets must be entered via 'nuke :secrets [profile]'"
+        },
+        "LandsatApiRenderDeployHook": {
+          "type": "string",
+          "default": "Secrets must be entered via 'nuke :secrets [profile]'"
+        },
+        "LandsatUiRenderDeployHook": {
+          "type": "string",
+          "default": "Secrets must be entered via 'nuke :secrets [profile]'"
         }
       }
     },
