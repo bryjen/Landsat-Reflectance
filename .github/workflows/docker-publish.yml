@@ -21,12 +21,12 @@ jobs:
         username: ${{ secrets.DOCKER_HUB_USERNAME }}
         password: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
-    - name: Set up Docker Buildx
+    - name: Set up Docker Build
       uses: docker/setup-buildx-action@v2
     
     - name: Build the Docker image
       run: |
-        docker build -f LandsatReflectance.Api/Dockerfile --no-cache -t chronoalpha/fs_landsat_api .
+        docker build -f src/LandsatReflectance.Api/Dockerfile --no-cache -t chronoalpha/fs_landsat_api .
     
     - name: Push the Docker image
       run: |
@@ -51,12 +51,12 @@ jobs:
         username: ${{ secrets.DOCKER_HUB_USERNAME }}
         password: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
-    - name: Set up Docker Buildx
+    - name: Set up Docker Build
       uses: docker/setup-buildx-action@v2
     
     - name: Build the Docker image
       run: |
-        docker build -f LandsatReflectance.UI/Dockerfile --no-cache -t chronoalpha/landsat_ui .
+        docker build -f src/LandsatReflectance.UI/Dockerfile --no-cache -t chronoalpha/landsat_ui .
     
     - name: Push the Docker image
       run: |

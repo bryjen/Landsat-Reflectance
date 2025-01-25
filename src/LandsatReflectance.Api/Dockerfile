@@ -5,7 +5,7 @@ EXPOSE 8080
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 COPY . .
-RUN dotnet publish LandsatReflectance.Api -c Release -o /app
+RUN dotnet publish ./src/LandsatReflectance.Api -c Release -o /app
 
 FROM base AS final
 WORKDIR /app
