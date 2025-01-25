@@ -19,9 +19,19 @@ using static Nuke.Common.IO.PathConstruction;
 [GitHubActions(
     "Build and Deploy (C# Nuke)",
     GitHubActionsImage.UbuntuLatest,
-    On = new[] { GitHubActionsTrigger.Push })]
+    ImportSecrets = [ 
+        nameof(DockerHubPassword), 
+        nameof(DockerHubUsername), 
+        nameof(LandsatApiRenderDeployHook), 
+        nameof(LandsatUiRenderDeployHook) ],
+    On = [ GitHubActionsTrigger.Push ])]
 class Build : NukeBuild
 {
+    [Parameter] [Secret] readonly string DockerHubPassword;
+    [Parameter] [Secret] readonly string DockerHubUsername;
+    [Parameter] [Secret] readonly string LandsatApiRenderDeployHook;
+    [Parameter] [Secret] readonly string LandsatUiRenderDeployHook;
+    
     /// Support plugins are available for:
     ///   - JetBrains ReSharper        https://nuke.build/resharper
     ///   - JetBrains Rider            https://nuke.build/rider
@@ -49,8 +59,12 @@ class Build : NukeBuild
         .DependsOn(BuildUiDockerImage)
         .Executes(() =>
         {
-            var dockerHubUsername = Environment.GetEnvironmentVariable("DOCKER_HUB_USERNAME") ?? string.Empty;
-            var dockerHubPassword = Environment.GetEnvironmentVariable("DOCKER_HUB_PASSWORD") ?? string.Empty;
+            var dockerHubUsername = Environment.GetEnvironmentVariable("DOCKER_HUB_USERNAME") 
+                                    ?? DockerHubUsername 
+                                    ?? string.Empty;
+            var dockerHubPassword = Environment.GetEnvironmentVariable("DOCKER_HUB_PASSWORD") 
+                                    ?? DockerHubPassword 
+                                    ?? string.Empty;
             using var dockerLoginProcess = Process.Start(new ProcessStartInfo
             {
                 FileName = "docker",
@@ -93,11 +107,15 @@ class Build : NukeBuild
         });
     
     public Target PublishApiDockerImage => _ => _
-        .DependsOn(BuildUiDockerImage)
+        .DependsOn(BuildDockerApiImage)
         .Executes(() =>
         {
-            var dockerHubUsername = Environment.GetEnvironmentVariable("DOCKER_HUB_USERNAME") ?? string.Empty;
-            var dockerHubPassword = Environment.GetEnvironmentVariable("DOCKER_HUB_PASSWORD") ?? string.Empty;
+            var dockerHubUsername = Environment.GetEnvironmentVariable("DOCKER_HUB_USERNAME") 
+                                    ?? DockerHubUsername 
+                                    ?? string.Empty;
+            var dockerHubPassword = Environment.GetEnvironmentVariable("DOCKER_HUB_PASSWORD") 
+                                    ?? DockerHubPassword 
+                                    ?? string.Empty;
             using var dockerLoginProcess = Process.Start(new ProcessStartInfo
             {
                 FileName = "docker",
@@ -134,8 +152,12 @@ class Build : NukeBuild
         .DependsOn(PublishApiDockerImage, PublishUiDockerImage)
         .Executes(async () =>
         {
-            var uiDeployHook = Environment.GetEnvironmentVariable("LANDSAT_UI_RENDER_DEPLOY_HOOK") ?? string.Empty;
-            var apiDeployHook = Environment.GetEnvironmentVariable("LANDSAT_API_RENDER_DEPLOY_HOOK") ?? string.Empty;
+            var uiDeployHook = Environment.GetEnvironmentVariable("LANDSAT_UI_RENDER_DEPLOY_HOOK") 
+                               ?? LandsatUiRenderDeployHook 
+                               ?? string.Empty;
+            var apiDeployHook = Environment.GetEnvironmentVariable("LANDSAT_API_RENDER_DEPLOY_HOOK")
+                                ?? LandsatApiRenderDeployHook 
+                                ?? string.Empty;
 
             
             Console.WriteLine($"UI Deploy Hook: \t\"{uiDeployHook}\"");
