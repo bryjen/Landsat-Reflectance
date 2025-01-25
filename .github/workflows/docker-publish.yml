@@ -1,9 +1,9 @@
 name: Build and Deploy
 
-on:
-  push:
-    branches:
-      - master
+# on:
+#  push:
+#    branches:
+#      - master
 
 jobs:
   deploy_api:
