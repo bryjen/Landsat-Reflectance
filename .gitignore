@@ -9,7 +9,7 @@ LandsatReflectance.sln.DotSettings.user
 .fake
 deploy.fsx.lock
 
-.nuke
+.nuke/temp
 LandsatReflectance.Build/LandsatReflectance.Build.csproj.DotSettings
 
 
