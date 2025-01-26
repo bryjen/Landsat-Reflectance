@@ -24,7 +24,7 @@ using static Nuke.Common.IO.PathConstruction;
         nameof(DockerHubUsername), 
         nameof(LandsatApiRenderDeployHook), 
         nameof(LandsatUiRenderDeployHook) ],
-    On = [ GitHubActionsTrigger.Push ])]
+    OnPushBranches = [ "master" ])]
 class Build : NukeBuild
 {
     [Parameter] [Secret] readonly string DockerHubPassword;

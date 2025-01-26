@@ -16,7 +16,10 @@
 
 name: Build_and_Deploy_(C#_Nuke)
 
-on: [push]
+on:
+  push:
+    branches:
+      - master
 
 jobs:
   ubuntu-latest:
