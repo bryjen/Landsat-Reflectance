@@ -1,4 +1,5 @@
 ﻿@using LandsatReflectance.UI.Services.Api
+@using MudBlazor.Utilities
 
 
 <div class="flex flex-col mx-4 mt-4 pa-4 h-fit bg-[#2a313c] border border-[#353c44]">
@@ -10,7 +11,7 @@
     </div>
     
     <MudAutocomplete T="@ForwardGeocodingData"
-                     @bind-Value="@_selectedForwardGeocodingData"
+                     @bind-Value="@SelectedForwardGeocodingData"
                      ShowProgressIndicator
                      Clearable
                      ResetValueOnEmptyText
@@ -35,7 +36,7 @@
         </ItemTemplate>
     </MudAutocomplete>
     
-    @if (_selectedForwardGeocodingData is null)
+    @if (SelectedForwardGeocodingData is null)
     {
         <p class="w-full my-4 text-center font-bold">OR</p>
 
@@ -46,6 +47,97 @@
                 Open Map
             </MudButton>
         </div>
+    }
+    else
+    {   // when a target is selected, display some options
+        @*
+        <div class="grid grid-cols-2 mt-4">
+            <div class="flex flex-col">
+                <p class="font-bold text-lg">Images</p>
+                <p class="text-[0.7rem]">Filter by satellite metadata.</p>
+            </div>
+            <div class="flex gap-2">
+                <MudCheckBox @bind-Value="@_showLandsat8" Label="Landsat 8" Size="@Size.Small"/>
+                <MudCheckBox @bind-Value="@_showLandsat9" Label="Landsat 9" Size="@Size.Small"/>
+            </div>
+        </div>
+*@
+        
+        <div class="grid grid-cols-2 items-center mt-4">
+            <div class="flex flex-col">
+                <p class="font-bold text-lg">Cloud Cover Filter</p>
+                <p class="text-[0.7rem]">Filter by percentage of cloud cover per scene/image.</p>
+            </div>
+
+            <div class="flex-col">
+                <MudRangeSlider @bind-Value="@_minCloudCover"
+                                @bind-UpperValue="@_maxCloudCover"
+                                Min="0" Max="1"
+                                Step="0.001"
+                                MinDistance="0.002"
+                                Size="@Size.Small"
+                                Class="-mt-4"
+                />
+                
+                <p class="text-center text-xs -mt-4 select-none">
+                    @($"{_minCloudCover} - {_maxCloudCover}")
+                </p>
+            </div>
+        </div>
+
+        
+        <div class="grid grid-cols-2 items-center mt-4">
+            <div class="flex flex-col">
+                <p class="font-bold text-lg">Select Scene</p>
+                <p class="text-[0.7rem]">Displayed as "Path, Row", in WRS-2 notation.</p>
+            </div>
+
+            <div class="flex-col">
+                @foreach (var (scene, _) in _scenes)
+                {
+                    var css = new CssBuilder()
+                        .AddClass("flex justify-center items-center pa-2 border border-[#353c44] font-bold cursor-pointer")
+                        .AddClass("hover:bg-[#2f3540]")
+                        .AddClass("bg-[#2f3540] text-[var(--mud-palette-info)]", scene == _selectedScene)
+                        .Build();
+                    
+                    <div class="@css" 
+                         @onclick="@(_ => OnSceneSelected(scene))"
+                    >
+                        @($"{scene.Path}, {scene.Row}")
+                    </div>
+                }
+            </div>
+        </div>
+        
+        @if (_selectedScene is not null 
+             && _scenes.TryGetValue(_selectedScene.Value, out var sceneData))
+        {
+            var dim = "200px";
+            <div class="flex flex-col items-center justify-center mt-6">
+                <p class="text-sm font-bold">
+                    Preview:
+                </p>
+                @if (sceneData is not null)
+                {
+                    var sizeStyle = $"height: {dim}; width: {dim}";
+                    <img alt="preview" src="@sceneData.BrowsePath" style="@sizeStyle"/>
+                }
+                else
+                {
+                    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Width="@dim" Height="@dim"/>
+                }
+            </div>
+            
+            <div class="flex justify-center items-center mt-6">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Save"
+                           OnClick="@(_ => TryAddTarget())">
+                    Add target
+                </MudButton>
+            </div>
+        }
     }
     
 </div>

@@ -470,10 +470,14 @@ public partial class DetailedView : ComponentBase
                 await OnUnhandledError.InvokeAsync((exception, RecoverPage));
             }
         };
+
+        var targetCloudCoverFilter = _target is not null
+            ? (_target.MinCloudCoverFilter, _target.MaxCloudCoverFilter)
+            : (_minCloudCover, _maxCloudCover);
         
         var parameters = new DialogParameters<DetailedViewSettingsDialog>
         {
-            { x => x.Model, new DetailedViewSettingsModel()
+            { x => x.Model, new DetailedViewSettingsModel
             {
                 Images = _images,
                 Skip = _skip,
@@ -482,7 +486,7 @@ public partial class DetailedView : ComponentBase
                 MinCloudCover = _minCloudCover,
                 MaxCloudCover = _maxCloudCover,
                 CloudCoverFilter = _cloudCoverFilter,
-                TargetCloudCoverFilter = (0.1, 0.5),
+                TargetCloudCoverFilter = targetCloudCoverFilter
             } },
             { x => x.OnDialogSubmit, EventCallback.Factory.Create(this, onDialogSubmit) }
         };

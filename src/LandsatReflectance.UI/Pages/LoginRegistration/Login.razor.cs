@@ -95,15 +95,14 @@ public partial class Login : ComponentBase
             // logic for switching to home page
             m_isProcessing = false;
             StateHasChanged();
-
-            await FullPageLoadingOverlay.ExecuteWithOverlay(
-                async () => { await Task.Delay(TimeSpan.FromSeconds(Rand.GeneratePageSwitchDelayTime())); },
-                () =>
-                {
-                    NavigationManager.NavigateTo("/");
-                    Snackbar.Add("Successfully logged in.", Severity.Info);
-                    return Task.CompletedTask;
-                });
+            
+            FullPageLoadingOverlay.Show();
+            await Task.Delay(TimeSpan.FromSeconds(Rand.GeneratePageSwitchDelayTime()));
+            
+            NavigationManager.NavigateTo("/");
+            Snackbar.Add("Successfully logged in.", Severity.Info);
+            
+            FullPageLoadingOverlay.Hide();
         }
         catch (AuthException authException)
         {
