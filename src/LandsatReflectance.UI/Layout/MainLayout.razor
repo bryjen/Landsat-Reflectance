@@ -67,13 +67,13 @@
 @* ReSharper restore UnusedParameter.Local *@
     {
         var dialogOptions = GetDialogOptions(null);
-        <MudDialog @ref="@_mudDialog" Options="@dialogOptions">
+        <MudDialog @ref="_mudDialog" Options="@dialogOptions">
             <DialogContent>
                 @RenderErrorDialogBody(null)
             </DialogContent>
             
             <DialogActions>
-                <MudButton Color="@Color.Error" Variant="@Variant.Filled" OnClick="@OnTriggerableErrorDialogDismissed">
+                <MudButton Color="@Color.Error" Variant="@Variant.Filled" OnClick="@OnDialogDismissed">
                     Dismiss
                 </MudButton>
             </DialogActions>
@@ -92,7 +92,7 @@
             </DialogContent>
 
             <DialogActions>
-                <MudButton Color="@Color.Error" Variant="@Variant.Filled" OnClick="@DefaultRecovery">
+                <MudButton Color="@Color.Error" Variant="@Variant.Filled" OnClick="@OnDialogDismissed">
                     Dismiss
                 </MudButton>
             </DialogActions>

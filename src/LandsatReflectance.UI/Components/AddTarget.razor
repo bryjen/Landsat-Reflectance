@@ -63,7 +63,7 @@
         </div>
 *@
         
-        <div class="grid grid-cols-2 items-center mt-4">
+        <div class="grid grid-cols-2 items-center mt-6">
             <div class="flex flex-col">
                 <p class="font-bold text-lg">Cloud Cover Filter</p>
                 <p class="text-[0.7rem]">Filter by percentage of cloud cover per scene/image.</p>
@@ -84,9 +84,25 @@
                 </p>
             </div>
         </div>
+        
+        
+        <div class="grid grid-cols-2 items-center mt-6">
+            <div class="flex flex-col pr-8">
+                <p class="font-bold text-lg">Notification Offset</p>
+                <p class="text-[0.65rem]">The amount of time you get notified before a new Landsat image gets posted.</p>
+            </div>
+
+            <div class="flex-col">
+                <MudNumericField @bind-Value="@_notificationOffsetHours" 
+                                 Label="Offset (in hours)" 
+                                 Variant="Variant.Filled" 
+                                 Min="0" 
+                                 Max="24" />
+            </div>
+        </div>
 
         
-        <div class="grid grid-cols-2 items-center mt-4">
+        <div class="grid grid-cols-2 items-center mt-6">
             <div class="flex flex-col">
                 <p class="font-bold text-lg">Select Scene</p>
                 <p class="text-[0.7rem]">Displayed as "Path, Row", in WRS-2 notation.</p>
