@@ -13,7 +13,7 @@
 TODO
 
 #### Features:
-- [ ] Filter, save, and search landsat scenes based on location, date, satellite, etc.
+- [x] Filter, save, and search landsat scenes based on location, date, satellite, etc.
 - [ ] Receive notifications when another scene image gets posted
 - [ ] Provide external download links for offline analysis
 
