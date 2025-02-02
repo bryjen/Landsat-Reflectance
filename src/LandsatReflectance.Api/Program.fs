@@ -18,6 +18,7 @@ open Microsoft.OpenApi.Models
 open Microsoft.Extensions.Options
 open Microsoft.IdentityModel.Tokens
 
+open LandsatReflectance.Api.Services.PredictionService
 open LandsatReflectance.Api.Extensions
 open LandsatReflectance.Api.Handlers.NotFoundHandler
 open LandsatReflectance.Api.Options
@@ -112,6 +113,7 @@ let configureServices (services: IServiceCollection) =
     
     services.AddSingleton<UsgsTokenService>() |> ignore
     services.AddTransient<UsgsSceneService>() |> ignore
+    services.AddTransient<PredictionService>() |> ignore
     services.AddScoped<DbUserService>() |> ignore
     services.AddScoped<DbUserTargetService>() |> ignore
         
@@ -146,7 +148,16 @@ let configureOpenApi (services: IServiceCollection) =
     |> ignore
     services
 
-
+let configureBuilder (webApplicationBuilder: WebApplicationBuilder) =
+    webApplicationBuilder.Services
+    |> configureAppOptions
+    |> configureServices
+    |> configureAuth
+    |> configureOpenApi
+    |> ignore
+    
+    webApplicationBuilder
+    
 let configureApp (app: IApplicationBuilder) =
     app.UseCors("AllowAll")
         
@@ -159,24 +170,21 @@ let configureApp (app: IApplicationBuilder) =
        
        .UseGiraffe(LandsatReflectance.Api.Routing.endpoints)
        .UseGiraffe(notFoundHandler)
-
+       
+    app
+       
+       
 [<EntryPoint>]
 let main args =
     let builder = WebApplication.CreateBuilder(args)
-    
-    builder.Services
-    |> configureAppOptions
-    |> configureServices
-    |> configureAuth
-    |> configureOpenApi
-    |> ignore
+    configureBuilder builder |> ignore
     
     let app = builder.Build()
     
     if app.Environment.IsDevelopment() then
         app.UseDeveloperExceptionPage() |> ignore
-
-    configureApp app
-    app.Run()
     
+    configureApp app |> ignore
+    
+    app.Run()
     0 // Exit code
