@@ -24,6 +24,7 @@
         <Compile Include="Services\UsgsSceneService.fs" />
         <Compile Include="Services\DbUserService.fs" />
         <Compile Include="Services\DbUserTargetService.fs" />
+        <Compile Include="Services\PredictionService.fs" />
         <Compile Include="Middleware\RequestIdMiddleware.fs" />
         <Compile Include="Middleware\GlobalErrorHandlingMiddleware.fs" />
         <Compile Include="Handlers\SceneHandler.fs" />
@@ -36,6 +37,7 @@
         <Content Include=".dockerignore" />
         <None Include="scripts\Deploy.fsx" />
         <None Include="scripts\Versioning.fsx" />
+        <Content Include="Data\validPathRows.csv" />
     </ItemGroup>
 
     <ItemGroup>

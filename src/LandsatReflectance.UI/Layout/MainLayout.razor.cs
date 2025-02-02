@@ -198,14 +198,7 @@ public partial class MainLayout : LayoutComponentBase
         
         _exceptionData = errorData;
         StateHasChanged();
-
-        try
-        {
-            _dialogReference = await _mudDialog.ShowAsync(null, GetDialogOptions(errorData.Exception));
-        }
-        catch
-        {
-            throw new Exception("MudBlazor dialog being a bitch again", errorData.Exception);
-        }
+        
+        _dialogReference = await _mudDialog.ShowAsync(null, GetDialogOptions(errorData.Exception));
     }
 }
