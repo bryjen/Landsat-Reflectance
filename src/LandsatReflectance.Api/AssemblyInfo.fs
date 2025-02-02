@@ -7,4 +7,4 @@ type internal TestInternalType =
     { Property: string }
 
 [<assembly: InternalsVisibleTo("LandsatReflectance.Api.Tests")>]
-do ()
+do () 
