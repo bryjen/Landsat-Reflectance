@@ -17,7 +17,7 @@ type Prediction =
       Row: int
       PredictedSatellite: int
       PredictedTimeUtc: DateTime
-      PredictedTimeUtcVariance: TimeSpan }
+      PredictedTimeUtcStdDev: TimeSpan }
     
     
 /// Type that represents a 'compressed' SceneData object, contains specific time information related to/or required to
@@ -127,7 +127,7 @@ module private PredictionServiceHelpers =
                 
             let! satelliteToFilterBy =
                 match latest.Satellite with
-                | 8 -> Ok 9
+                | 8 -> Ok 8
                 | 9 -> Ok 8
                 | _ -> Error $"[filterScenesBySatellite] 'latest' has an unknown satellite value: \"{latest.Satellite}\""
                 
@@ -139,7 +139,36 @@ module private PredictionServiceHelpers =
             return (satelliteToFilterBy, publishDatesUtc)
         }
         
-    
+    let filterOutliers (timespans: TimeSpan array) =
+        let median (arr: float array) =
+            match arr.Length with
+            | l when l % 2 = 0 -> arr[l / 2]
+            | l -> (arr[l / 2] + arr[(l / 2) + 1]) / 2.0
+           
+        let split (arr: float array) : float array * float array =
+            let l2 = arr.Length / 2
+            match arr.Length with
+            | l when l % 2 = 0 -> 
+                (arr[0..l2-1], arr[l2..arr.Length-1])
+            | _ ->
+                (arr[0..l2-1], arr[l2+1..arr.Length-1])
+           
+            
+        let timespansAsTicks =
+            timespans
+            |> Array.map (fun (ts: TimeSpan) -> float ts.Ticks) 
+            |> Array.sortBy id
+        let first, second =  split timespansAsTicks
+        let q1 = median first
+        let q3 = median second
+        let iqr = q3 - q1
+        let multiplier = 1.5  // adjust for tolerance
+        
+        timespansAsTicks
+        |> Array.filter (fun ticks -> ticks > q1 - (multiplier * iqr) && ticks < q3 + (multiplier * iqr))
+        |> Array.map int64
+        |> Array.map TimeSpan.FromTicks
+        
     
     
 type PredictionService(
@@ -152,7 +181,7 @@ type PredictionService(
                              |> TaskResult.mapError _.Message 
             usgsHttpClient.HttpClient.DefaultRequestHeaders.Add("X-Auth-Token", authToken)
             
-            let! scenes = getScenes usgsHttpClient.HttpClient path row 15
+            let! scenes = getScenes usgsHttpClient.HttpClient path row 100
                           |> TaskResult.mapError _.Message 
             let! predictedSatellite, publishDates = filterScenesBySatellite scenes
             
@@ -161,6 +190,7 @@ type PredictionService(
                 publishDates
                 |> Array.pairwise
                 |> Array.map (fun tuple -> (fst tuple) - (snd tuple))
+                |> filterOutliers
                 
             let meanTimespan =
                 timespans
@@ -171,18 +201,18 @@ type PredictionService(
             let latestPublishDate = publishDates[0]  // we know it's not null since we checked for it in 'filterScenesBySatellite'
             let predictedTimeUtc = latestPublishDate + meanTimespan
             
-            let ticks = Array.map (fun (timespan: TimeSpan) -> float timespan.Ticks) timespans
-            let meanTicks = Array.average ticks
-            let timespanVariance =
-                ticks
-                |> Array.averageBy (fun _ticks -> (_ticks - meanTicks) ** 2)
-                |> int64
-                |> TimeSpan.FromTicks
+            let meanTimespanTicks = Array.averageBy (fun (timespan: TimeSpan) -> float timespan.Ticks) timespans
+            let sumOfSquares =
+                timespans
+                |> Array.map (fun timespan -> float timespan.Ticks)
+                |> Array.sumBy (fun ticks -> (ticks - meanTimespanTicks) ** 2.0) 
+            let ticksStdDev = (sumOfSquares / (float timespans.Length)) |> sqrt |> int64
+            let timespanStdDev = TimeSpan.FromTicks ticksStdDev
                 
             return
                 { Path = path
                   Row = row
                   PredictedSatellite = predictedSatellite
                   PredictedTimeUtc = predictedTimeUtc
-                  PredictedTimeUtcVariance = timespanVariance }
+                  PredictedTimeUtcStdDev = timespanStdDev }
         }

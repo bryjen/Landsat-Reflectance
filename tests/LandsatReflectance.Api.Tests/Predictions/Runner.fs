@@ -49,7 +49,7 @@ let Test1 () =
         
         match predictionResult with
         | Ok prediction ->
-            printfn $"{prediction.Path}\n{prediction.Row}\n{prediction.PredictedSatellite}\n{prediction.PredictedTimeUtc}\n{prediction.PredictedTimeUtcVariance}"
+            printfn $"{prediction.Path}\n{prediction.Row}\n{prediction.PredictedSatellite}\n{prediction.PredictedTimeUtc}\n{prediction.PredictedTimeUtcStdDev}"
             Assert.Pass()
         | Error error ->
             Assert.Fail(error)
