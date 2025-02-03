@@ -38,7 +38,7 @@ let Dispose () =
     ()
 
 [<Test>]
-let Test1 () =
+let Runner1 () =
     task {
         // TODO: See why below doesn't work
         // use scope = testServer.Host.Services.CreateScope()
@@ -49,7 +49,24 @@ let Test1 () =
         
         match predictionResult with
         | Ok prediction ->
-            printfn $"{prediction.Path}\n{prediction.Row}\n{prediction.PredictedSatellite}\n{prediction.PredictedTimeUtc}\n{prediction.PredictedTimeUtcStdDev}"
+            printfn $"{prediction.Path}\n{prediction.Row}\n{prediction.PredictedSatellite}\n{prediction.PredictedTimeUtc}\n{prediction.PredictedTimeUtcWeightedMean}\n{prediction.PredictedTimeUtcWeightedStdDev}"
+            Assert.Pass()
+        | Error error ->
+            Assert.Fail(error)
+        return ()
+    }
+
+[<Test>]
+let Runner2 () =
+    task {
+        let predictionService = testServer.Services.GetRequiredService<PredictionService>()
+        let! normalDistributionParametersResult = predictionService.GetNormalProbabilityDistributionMetrics(14, 28)
+        
+        match normalDistributionParametersResult with
+        | Ok normalDistributionParameters ->
+            printfn
+                $"Landsat 8 Mean:\t\t{normalDistributionParameters.Landsat8Mean:G}\nLandsat 8 Std dev:\t{normalDistributionParameters.Landsat8StdDev:G}
+                \nLandsat 9 Mean:\t\t{normalDistributionParameters.Landsat9Mean:G}\nLandsat 9 Std dev:\t{normalDistributionParameters.Landsat9StdDev:G}\n"
             Assert.Pass()
         | Error error ->
             Assert.Fail(error)

@@ -42,23 +42,15 @@
 	<s:String x:Key="/Default/Environment/AssemblyExplorer/XmlDocument/@EntryValue">&lt;AssemblyExplorer&gt;&#xD;
   &lt;Assembly Path="C:\Users\migue\RiderProjects\Landsat-Reflectance\src\LandsatReflectance.Build\bin\Debug\Nuke.Utilities.Text.Yaml.dll" /&gt;&#xD;
 &lt;/AssemblyExplorer&gt;</s:String>
-	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=0036874e_002D243c_002D444a_002D994f_002De8820c16ecb5/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" Name="Runner" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
-  &lt;TestAncestor&gt;&#xD;
-    &lt;TestId&gt;NUnit3x::FD7ECD98-C79B-467D-8CAF-F9E232D6EF22::net9.0::LandsatReflectance.Api.Tests.Predictions.Runner&lt;/TestId&gt;&#xD;
-  &lt;/TestAncestor&gt;&#xD;
-&lt;/SessionState&gt;</s:String>
-	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=922ccba8_002D3440_002D4799_002Da2d8_002D91e77c87d6b3/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="Test1" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
-  &lt;TestAncestor&gt;&#xD;
-    &lt;TestId&gt;NUnit3x::FD7ECD98-C79B-467D-8CAF-F9E232D6EF22::net9.0::LandsatReflectance.Api.Tests.Predictions.Runner.Test1&lt;/TestId&gt;&#xD;
-  &lt;/TestAncestor&gt;&#xD;
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=ba35ee04_002Dce39_002D4ed0_002Db2dc_002D55363760287b/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="All tests from Solution" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
+  &lt;Solution /&gt;&#xD;
 &lt;/SessionState&gt;</s:String>
 	
 	
-	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=b7ab84fc_002Dbb6e_002D4f44_002D91e1_002D5c2dd1077a46/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" Name="Runner #2" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
-  &lt;TestAncestor&gt;&#xD;
-    &lt;TestId&gt;NUnit3x::FD7ECD98-C79B-467D-8CAF-F9E232D6EF22::net9.0::LandsatReflectance.Api.Tests.Predictions.Runner&lt;/TestId&gt;&#xD;
-  &lt;/TestAncestor&gt;&#xD;
-&lt;/SessionState&gt;</s:String>
+	
+	
+	
+	
 	
 	
 	</wpf:ResourceDictionary>

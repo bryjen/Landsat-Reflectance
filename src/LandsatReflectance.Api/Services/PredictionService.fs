@@ -6,18 +6,22 @@ open System.Net.Http
 open System.Text
 open System.Text.Json
 open System.Text.Json.Nodes
+open FsLandsatApi.Models.PredictionsState
 open FsToolkit.ErrorHandling
 open LandsatReflectance.Api.Json.Usgs.SceneSearch
 open LandsatReflectance.Api.Models.Usgs.Scene
 open LandsatReflectance.Api.Services.UsgsTokenService
 open LandsatReflectance.Api.Utils.UsgsHttpClient
+open Microsoft.Extensions.DependencyInjection
 
-type Prediction =
+type public Prediction =
     { Path: int
       Row: int
       PredictedSatellite: int
       PredictedTimeUtc: DateTime
-      PredictedTimeUtcStdDev: TimeSpan }
+      PredictedTimeUtcWeightedMean: TimeSpan
+      PredictedTimeUtcWeightedStdDev: TimeSpan }
+    
     
     
 /// Type that represents a 'compressed' SceneData object, contains specific time information related to/or required to
@@ -127,7 +131,7 @@ module private PredictionServiceHelpers =
                 
             let! satelliteToFilterBy =
                 match latest.Satellite with
-                | 8 -> Ok 8
+                | 8 -> Ok 9
                 | 9 -> Ok 8
                 | _ -> Error $"[filterScenesBySatellite] 'latest' has an unknown satellite value: \"{latest.Satellite}\""
                 
@@ -162,18 +166,90 @@ module private PredictionServiceHelpers =
         let q1 = median first
         let q3 = median second
         let iqr = q3 - q1
-        let multiplier = 1.5  // adjust for tolerance
+        let multiplier = 0.5  // adjust for tolerance
         
         timespansAsTicks
         |> Array.filter (fun ticks -> ticks > q1 - (multiplier * iqr) && ticks < q3 + (multiplier * iqr))
         |> Array.map int64
         |> Array.map TimeSpan.FromTicks
         
+        
+    // GPT code !!!
+    let calculateWeightedStats data bins =
+        let minVal, maxVal = Array.min data, Array.max data
+        let binSize = (maxVal - minVal) / float bins
+
+        let binValue x = Math.Floor((x - minVal) / binSize)
+
+        let bins = 
+            data 
+            |> Array.groupBy binValue 
+            |> Array.map (fun (bin, values) -> ((bin * binSize) + minVal, float (Array.length values)))
+
+        let totalCount = bins |> Array.sumBy snd
+        let weights = bins |> Array.map (fun (center, count) -> center, count / totalCount)
+
+        let weightedMean = weights |> Array.sumBy (fun (center, weight) -> center * weight)
+        let weightedVariance = 
+            weights 
+            |> Array.sumBy (fun (center, weight) -> weight * (center - weightedMean) ** 2.0)
+
+        let weightedStdDev = sqrt weightedVariance
+        weightedMean, weightedStdDev
+        
+        
+    let performCoreCalculation path row predictedSatellite (publishDates: DateTime array) =
+        let timespans = 
+            publishDates
+            |> Array.pairwise
+            |> Array.map (fun tuple -> (fst tuple) - (snd tuple))
+            |> filterOutliers
+            
+        let meanTimespan =
+            timespans
+            |> Array.averageBy (fun timespan -> float timespan.Ticks)
+            |> int64
+            |> TimeSpan.FromTicks
+            
+        let latestPublishDate = publishDates[0]  // we know it's not null since we checked for it in 'filterScenesBySatellite'
+        let predictedTimeUtc = latestPublishDate + meanTimespan
+        
+        let timespansTicks =
+            timespans
+            |> Array.map _.Ticks
+            |> Array.map float
+            
+        let weightedMean, weightedStdDev = calculateWeightedStats timespansTicks 100
+        { Path = path
+          Row = row
+          PredictedSatellite = predictedSatellite
+          PredictedTimeUtc = predictedTimeUtc
+          PredictedTimeUtcWeightedMean = weightedMean |> int64 |> TimeSpan.FromTicks
+          PredictedTimeUtcWeightedStdDev = weightedStdDev |> int64 |> TimeSpan.FromTicks }
+        
+        
+        
+    
+ 
+/// <summary>
+/// Service class offering functionality related to scene predictions, as well as containing the 'current' state of
+/// predictions and how close we are to them. This enables us to notify users.
+/// </summary>
+type public PredictionService(serviceScopeFactory: IServiceScopeFactory) as this =
+    
+    let results = 25
+    
+    let scope = serviceScopeFactory.CreateScope()
+    let usgsHttpClient = scope.ServiceProvider.GetRequiredService<UsgsHttpClient>()
+    let usgsTokenService = scope.ServiceProvider.GetRequiredService<UsgsTokenService>()
+    
+    let predictionsState = PredictionsState.Init(scope.ServiceProvider)
     
     
-type PredictionService(
-    usgsHttpClient: UsgsHttpClient,
-    usgsTokenService: UsgsTokenService) =
+    interface IDisposable with
+        member _.Dispose() =
+            scope.Dispose()
+            ()
     
     member this.GetPrediction(path: int, row: int) =
         taskResult {
@@ -181,38 +257,38 @@ type PredictionService(
                              |> TaskResult.mapError _.Message 
             usgsHttpClient.HttpClient.DefaultRequestHeaders.Add("X-Auth-Token", authToken)
             
-            let! scenes = getScenes usgsHttpClient.HttpClient path row 100
+            let! scenes = getScenes usgsHttpClient.HttpClient path row results
                           |> TaskResult.mapError _.Message 
             let! predictedSatellite, publishDates = filterScenesBySatellite scenes
+         
+            return performCoreCalculation path row predictedSatellite publishDates   
+        }
+
+    member internal this.GetNormalProbabilityDistributionMetrics(path: int, row: int) =
+        taskResult {
+            let! authToken = usgsTokenService.GetToken()
+                             |> TaskResult.mapError _.Message 
+            usgsHttpClient.HttpClient.DefaultRequestHeaders.Add("X-Auth-Token", authToken)
             
-            // perform core calculation
-            let timespans = 
-                publishDates
-                |> Array.pairwise
-                |> Array.map (fun tuple -> (fst tuple) - (snd tuple))
-                |> filterOutliers
+            let! scenes = getScenes usgsHttpClient.HttpClient path row results
+                          |> TaskResult.mapError _.Message
+                          
+            let publishDatesUtcLandsat8 =
+                scenes
+                |> Array.filter (fun sceneDataTime -> sceneDataTime.Satellite = 8)
+                |> Array.map _.PublishDateUtc
                 
-            let meanTimespan =
-                timespans
-                |> Array.averageBy (fun timespan -> float timespan.Ticks)
-                |> int64
-                |> TimeSpan.FromTicks
+            let publishDatesUtcLandsat9 =
+                scenes
+                |> Array.filter (fun sceneDataTime -> sceneDataTime.Satellite = 9)
+                |> Array.map _.PublishDateUtc
                 
-            let latestPublishDate = publishDates[0]  // we know it's not null since we checked for it in 'filterScenesBySatellite'
-            let predictedTimeUtc = latestPublishDate + meanTimespan
-            
-            let meanTimespanTicks = Array.averageBy (fun (timespan: TimeSpan) -> float timespan.Ticks) timespans
-            let sumOfSquares =
-                timespans
-                |> Array.map (fun timespan -> float timespan.Ticks)
-                |> Array.sumBy (fun ticks -> (ticks - meanTimespanTicks) ** 2.0) 
-            let ticksStdDev = (sumOfSquares / (float timespans.Length)) |> sqrt |> int64
-            let timespanStdDev = TimeSpan.FromTicks ticksStdDev
-                
-            return
-                { Path = path
-                  Row = row
-                  PredictedSatellite = predictedSatellite
-                  PredictedTimeUtc = predictedTimeUtc
-                  PredictedTimeUtcStdDev = timespanStdDev }
+            let landsat8Prediction = performCoreCalculation path row 8 publishDatesUtcLandsat8
+            let landsat9Prediction = performCoreCalculation path row 9 publishDatesUtcLandsat9
+             
+            return    
+                { Landsat8Mean = landsat8Prediction.PredictedTimeUtcWeightedMean
+                  Landsat8StdDev = landsat8Prediction.PredictedTimeUtcWeightedStdDev
+                  Landsat9Mean = landsat9Prediction.PredictedTimeUtcWeightedMean
+                  Landsat9StdDev  = landsat9Prediction.PredictedTimeUtcWeightedStdDev }
         }

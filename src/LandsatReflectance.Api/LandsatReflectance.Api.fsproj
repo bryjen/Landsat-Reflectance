@@ -15,6 +15,7 @@
         <Compile Include="Models\Usgs\Scene.fs" />
         <Compile Include="Models\ApiResponse.fs" />
         <Compile Include="Models\User.fs" />
+        <Compile Include="Models\PredictionsState.fs" />
         <Compile Include="Utils\UsgsHttpClient.fs" />
         <Compile Include="Utils\AppJsonSerializer.fs" />
         <Compile Include="Utils\PasswordHashing.fs" />
@@ -39,7 +40,7 @@
         <Content Include=".dockerignore" />
         <None Include="scripts\Deploy.fsx" />
         <None Include="scripts\Versioning.fsx" />
-        <Content Include="Data\validPathRows.csv">
+        <Content Include="Data\bootstrapPathRowData.csv">
           <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
     </ItemGroup>
