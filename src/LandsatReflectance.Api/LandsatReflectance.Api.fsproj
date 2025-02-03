@@ -5,6 +5,7 @@
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <IsPackable>false</IsPackable>
         <RootNamespace>FsLandsatApi</RootNamespace>
+        <AssemblyName>LandsatReflectance.Api</AssemblyName>
     </PropertyGroup>
 
     <ItemGroup>
@@ -14,6 +15,7 @@
         <Compile Include="Models\Usgs\Scene.fs" />
         <Compile Include="Models\ApiResponse.fs" />
         <Compile Include="Models\User.fs" />
+        <Compile Include="Models\PredictionsState.fs" />
         <Compile Include="Utils\UsgsHttpClient.fs" />
         <Compile Include="Utils\AppJsonSerializer.fs" />
         <Compile Include="Utils\PasswordHashing.fs" />
@@ -24,6 +26,7 @@
         <Compile Include="Services\UsgsSceneService.fs" />
         <Compile Include="Services\DbUserService.fs" />
         <Compile Include="Services\DbUserTargetService.fs" />
+        <Compile Include="Services\PredictionService.fs" />
         <Compile Include="Middleware\RequestIdMiddleware.fs" />
         <Compile Include="Middleware\GlobalErrorHandlingMiddleware.fs" />
         <Compile Include="Handlers\SceneHandler.fs" />
@@ -31,15 +34,19 @@
         <Compile Include="Handlers\UserTargetsHandler.fs" />
         <Compile Include="Handlers\NotFoundHandler.fs" />
         <Compile Include="Routing.fs" />
+        <Compile Include="AssemblyInfo.fs" />
         <Compile Include="Program.fs"/>
         <Content Include="Dockerfile" />
         <Content Include=".dockerignore" />
         <None Include="scripts\Deploy.fsx" />
         <None Include="scripts\Versioning.fsx" />
+        <Content Include="Data\bootstrapPathRowData.csv">
+          <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="FsToolkit.ErrorHandling" Version="5.0.0-beta001" />
+      <PackageReference Include="FsToolkit.ErrorHandling" Version="5.0.0-beta003" />
       <PackageReference Include="Giraffe" Version="7.0.2" />
       <PackageReference Include="Giraffe.OpenApi" Version="0.0.1" />
       <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0" />

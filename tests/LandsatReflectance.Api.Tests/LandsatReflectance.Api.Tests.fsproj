@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <IsPackable>false</IsPackable>
+        <GenerateProgramFile>false</GenerateProgramFile>
+        <AssemblyName>LandsatReflectance.Api.Tests</AssemblyName>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="Predictions\Runner.fs" />
+        <Compile Include="Program.fs"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="coverlet.collector" Version="6.0.2"/>
+        <PackageReference Include="FsToolkit.ErrorHandling" Version="5.0.0-beta003" />
+        <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="9.0.1" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1"/>
+        <PackageReference Include="Microsoft.TestPlatform.TestHost" Version="17.12.0" />
+        <PackageReference Include="NUnit" Version="4.2.2"/>
+        <PackageReference Include="NUnit.Analyzers" Version="4.3.0"/>
+        <PackageReference Include="NUnit3TestAdapter" Version="4.6.0"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\..\src\LandsatReflectance.Api\LandsatReflectance.Api.fsproj" />
+    </ItemGroup>
+
+</Project>

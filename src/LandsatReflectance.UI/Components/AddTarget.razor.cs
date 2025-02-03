@@ -72,6 +72,7 @@ public partial class AddTarget : ComponentBase
     private bool _showLandsat9 = true;
     private double _minCloudCover = 0;
     private double _maxCloudCover = 1;
+    private int _notificationOffsetHours = 1;
     
     
     private async Task<IEnumerable<ForwardGeocodingData>> SearchForAddresses(string addressStr, CancellationToken cancellationToken)
@@ -108,7 +109,7 @@ public partial class AddTarget : ComponentBase
                     { "longitude", SelectedForwardGeocodingData.Longitude },
                     { "minCloudCoverFilter", _minCloudCover },
                     { "maxCloudCoverFilter", _maxCloudCover },
-                    { "notificationOffset", "01:00:00" }
+                    { "notificationOffset", TimeSpan.FromHours(_notificationOffsetHours).ToString(@"hh\:mm\:ss") }
                 };
 
                 var target = await ApiTargetService.TryAddTarget(CurrentUserService.AccessToken, requestBodyDict);
@@ -125,7 +126,7 @@ public partial class AddTarget : ComponentBase
                     Longitude = SelectedForwardGeocodingData.Longitude,
                     MinCloudCoverFilter = _minCloudCover,
                     MaxCloudCoverFilter = _maxCloudCover,
-                    NotificationOffset = TimeSpan.FromHours(1)
+                    NotificationOffset = TimeSpan.FromHours(_notificationOffsetHours)
                 };
 
                 CurrentTargetsService.AddUnregisteredTarget(target);

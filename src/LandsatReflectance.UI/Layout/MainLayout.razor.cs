@@ -163,14 +163,10 @@ public partial class MainLayout : LayoutComponentBase
         return DefaultUnexpectedErrorDialogOptions;
     }
 
-    private void DefaultRecovery()
+    private async Task OnDialogDismissed()
     {
-        // Default behavior when no recovery callback is provided is to force load the home page.
-        NavigationManager.NavigateTo("/", forceLoad: true);
-    }
-
-    private async Task OnTriggerableErrorDialogDismissed()
-    {
+        _errorBoundary.Recover();
+        
         if (_dialogReference is not null)
         {
             _dialogReference.Close();
@@ -184,7 +180,8 @@ public partial class MainLayout : LayoutComponentBase
             }
             else
             {
-                DefaultRecovery();
+                // Default behavior when no recovery callback is provided is to force load the home page.
+                NavigationManager.NavigateTo("/", forceLoad: true);
             }
             
             _exceptionData = null;
@@ -202,6 +199,6 @@ public partial class MainLayout : LayoutComponentBase
         _exceptionData = errorData;
         StateHasChanged();
         
-        _dialogReference = await _mudDialog.ShowAsync();
+        _dialogReference = await _mudDialog.ShowAsync(null, GetDialogOptions(errorData.Exception));
     }
 }
