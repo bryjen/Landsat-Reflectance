@@ -3,14 +3,11 @@
 module LandsatReflectance.Api.Tests.Predictions.Runner
 
 open System.Net.Http
-open LandsatReflectance.Api.Services
+open FsToolkit.ErrorHandling
 open LandsatReflectance.Api.Services.PredictionService
-open LandsatReflectance.Api.Services.UsgsTokenService
 open Microsoft.AspNetCore.Builder
-open Microsoft.AspNetCore.Hosting
 open Microsoft.AspNetCore.TestHost
 open Microsoft.Extensions.DependencyInjection
-open Microsoft.Extensions.Hosting
 open NUnit.Framework
 open Program
 
@@ -59,6 +56,9 @@ let Runner1 () =
 [<Test>]
 let Runner2 () =
     task {
+        let scope = testServer.Services.CreateScope()
+        PredictionsState.Init(scope.ServiceProvider)
+        
         let predictionService = testServer.Services.GetRequiredService<PredictionService>()
         let! normalDistributionParametersResult = predictionService.GetNormalProbabilityDistributionMetrics(14, 28)
         
@@ -72,3 +72,17 @@ let Runner2 () =
             Assert.Fail(error)
         return ()
     }
+    
+[<Test>]
+let Runner3 () =
+    taskResult {
+        let scope = testServer.Services.CreateScope()
+        return! PredictionsState.Init(scope.ServiceProvider)
+        return ()
+    }
+    |> _.GetAwaiter()
+    |> _.GetResult()
+    |> function
+        | Ok _ -> Assert.Pass()
+        | Error errorMsg -> Assert.Fail(errorMsg)
+    

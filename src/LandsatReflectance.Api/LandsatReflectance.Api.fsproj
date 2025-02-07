@@ -46,6 +46,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <PackageReference Include="CsvHelper" Version="33.0.1" />
       <PackageReference Include="FsToolkit.ErrorHandling" Version="5.0.0-beta003" />
       <PackageReference Include="Giraffe" Version="7.0.2" />
       <PackageReference Include="Giraffe.OpenApi" Version="0.0.1" />

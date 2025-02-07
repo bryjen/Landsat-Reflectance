@@ -1,18 +1,22 @@
 ﻿module LandsatReflectance.Api.Services.PredictionService
 
 open System
+open System.Globalization
 open System.IO
 open System.Net.Http
 open System.Text
 open System.Text.Json
 open System.Text.Json.Nodes
-open FsLandsatApi.Models.PredictionsState
+open System.Threading.Tasks
+open CsvHelper
+open CsvHelper.Configuration
 open FsToolkit.ErrorHandling
 open LandsatReflectance.Api.Json.Usgs.SceneSearch
 open LandsatReflectance.Api.Models.Usgs.Scene
 open LandsatReflectance.Api.Services.UsgsTokenService
 open LandsatReflectance.Api.Utils.UsgsHttpClient
 open Microsoft.Extensions.DependencyInjection
+open Microsoft.Extensions.Logging
 
 type public Prediction =
     { Path: int
@@ -228,14 +232,183 @@ module private PredictionServiceHelpers =
           PredictedTimeUtcWeightedStdDev = weightedStdDev |> int64 |> TimeSpan.FromTicks }
         
         
+type public NormalDistributionParameters =
+    { Landsat8Mean: TimeSpan
+      Landsat8StdDev: TimeSpan
+      Landsat9Mean: TimeSpan
+      Landsat9StdDev: TimeSpan }
+
+[<CLIMutable>]
+type public PathRow =
+    { Path: int
+      Row: int }
+    
+[<CLIMutable>]
+type public PredictionStateEntry =
+    { Path: int
+      Row: int
+      PredictedSatellite: int
+      PredictedDateTimeUtc: DateTime
+      Landsat8Mean: TimeSpan
+      Landsat8StdDev: TimeSpan
+      Landsat9Mean: TimeSpan
+      Landsat9StdDev: TimeSpan }
         
+    
+    
+type public PredictionsState() =
+    
+    static member Something(
+        outputPath: string,
+        renamethisthing: int -> int -> TaskResult<Prediction * NormalDistributionParameters, string>,
+        logger: ILogger,
+        pathRowArr: PathRow array)
+            // : TaskResult<Map<int * int, PredictionStateEntry>, string> =
+            : Task<Map<int * int, PredictionStateEntry>> =
+                
+        let saveInterval = 1000
+        let mutable map: Map<int * int, PredictionStateEntry> = Map.ofList []
+        
+        for i in 0 .. pathRowArr.Length - 1 do
+            let pathRow = pathRowArr[i]
+            let path = pathRow.Path
+            let row = pathRow.Row
+            
+            taskResult {
+                try 
+                    let! prediction, normalDistributionParameters = renamethisthing path row
+                    let predictionStateEntry =
+                        { Path = path
+                          Row = row
+                          PredictedSatellite = prediction.PredictedSatellite
+                          PredictedDateTimeUtc = prediction.PredictedTimeUtc
+                          Landsat8Mean = normalDistributionParameters.Landsat8Mean
+                          Landsat8StdDev = normalDistributionParameters.Landsat8StdDev
+                          Landsat9Mean = normalDistributionParameters.Landsat9Mean
+                          Landsat9StdDev = normalDistributionParameters.Landsat9StdDev }
+                    
+                    // map <- map.Add ((path, row), predictionStateEntry)
+                    logger.LogInformation($"[{DateTime.Now}]\t({path}, {row})\t(landsat {predictionStateEntry.PredictedSatellite}) {predictionStateEntry.PredictedDateTimeUtc}")
+                    return predictionStateEntry 
+                with
+                | ex ->
+                    return! (Error ex.Message)
+            }
+            |> _.GetAwaiter()
+            |> _.GetResult()
+            |> function
+                | Ok predictionStateEntry ->
+                    map <- map.Add ((path, row), predictionStateEntry)
+                    
+                    if (i + 1) % saveInterval = 0 then
+                        let values = Seq.toArray map.Values
+                        use writer = new StreamWriter(outputPath)
+                        use csv = new CsvWriter(writer, CultureInfo.InvariantCulture)
+                        csv.WriteRecords(values)
+                        logger.LogInformation($"[{DateTime.Now}]\tSaved {values.Length} entries, {((double i) / (float pathRowArr.Length))} done")
+                | Error errorMsg ->
+                    logger.LogWarning($"[{DateTime.Now}]\t({path}, {row})\tFAILED with message \"{errorMsg}\"")
+                    
+        Task.FromResult map
+        
+        (*
+        taskResult {
+            let mutable map: Map<int * int, PredictionStateEntry> = Map.ofList []
+            
+            for i in 0 .. pathRowArr.Length - 1 do
+                let pathRow = pathRowArr[i]
+                let path = pathRow.Path
+                let row = pathRow.Row
+                
+                try 
+                    let! prediction, normalDistributionParameters = renamethisthing path row
+                    let predictionStateEntry =
+                        { Path = path
+                          Row = row
+                          PredictedSatellite = prediction.PredictedSatellite
+                          PredictedDateTimeUtc = prediction.PredictedTimeUtc
+                          Landsat8Mean = normalDistributionParameters.Landsat8Mean
+                          Landsat8StdDev = normalDistributionParameters.Landsat8StdDev
+                          Landsat9Mean = normalDistributionParameters.Landsat9Mean
+                          Landsat9StdDev = normalDistributionParameters.Landsat9StdDev }
+                    
+                    map <- map.Add ((path, row), predictionStateEntry)
+                    logger.LogInformation($"[{DateTime.Now}]\t({path}, {row})\t(landsat {predictionStateEntry.PredictedSatellite}) {predictionStateEntry.PredictedDateTimeUtc}")
+                    
+                    if (i + 1) % saveInterval = 0 then
+                        let values = Seq.toArray map.Values
+                        use writer = new StreamWriter(outputPath)
+                        use csv = new CsvWriter(writer, CultureInfo.InvariantCulture)
+                        csv.WriteRecords(values)
+                        logger.LogInformation($"[{DateTime.Now}]\tSaved {values.Length} entries, {((double i) / (float pathRowArr.Length))} done")
+                with
+                | ex ->
+                    logger.LogWarning($"[{DateTime.Now}]\t({path}, {row})\tFAILED with message \"{ex.Message}\"")
+                
+            return map
+        }
+        *) 
+    
+    static member Init(serviceProvider: IServiceProvider) =
+        taskResult {
+            let logger = serviceProvider.GetRequiredService<ILogger<PredictionsState>>()
+            
+            let bootstrapFilePath = "./Data/bootstrapPathRowData.csv"
+            let predictionDataFilePath = "./Data/predictionData.csv"
+            
+            match File.Exists(bootstrapFilePath), File.Exists(predictionDataFilePath) with
+            | true, true ->
+                logger.LogInformation($"Found path/row data file \"{predictionDataFilePath}\".")
+                // load prediction data file 
+                failwith "todo"
+            | true, false ->
+                logger.LogInformation($"Found bootstrap file \"{bootstrapFilePath}\", path/row data file missing at \"{predictionDataFilePath}\".")
+                logger.LogInformation("Initializing path/row data file.")
+                
+                let csvReaderConfig = CsvConfiguration(CultureInfo.InvariantCulture)
+                csvReaderConfig.PrepareHeaderForMatch <- _.Header.ToLower()
+                csvReaderConfig.HeaderValidated <- null
+                csvReaderConfig.MissingFieldFound <- null
+                
+                use reader = new StreamReader(bootstrapFilePath)
+                use csv = new CsvReader(reader, csvReaderConfig)
+                let pathRows = csv.GetRecords<PathRow>() |> Seq.toArray
+                
+                logger.LogInformation($"Fetched {pathRows.Length} entries from bootstrap file.")
+                
+                let usgsTokenService = serviceProvider.GetRequiredService<UsgsTokenService>()
+                let usgsHttpClient = serviceProvider.GetRequiredService<UsgsHttpClient>()
+                let partialApplication = (fun path row -> PredictionService.GetPredictionAndNormalDistributionParameters(usgsTokenService, usgsHttpClient, path, row, 10))
+                let! map = PredictionsState.Something(predictionDataFilePath, partialApplication, logger, pathRows)
+                
+                let values = Seq.toArray map.Values
+                use writer = new StreamWriter(predictionDataFilePath)
+                use csv = new CsvWriter(writer, CultureInfo.InvariantCulture)
+                csv.WriteRecords(values)
+                
+                logger.LogInformation($"[{DateTime.Now}]\tSaved {values.Length} entries.")
+                logger.LogInformation($"[{DateTime.Now}]\tFinished initialization")
+                
+                
+                // init data file from bootstrap
+                failwith "todo"
+            | false, true ->
+                logger.LogInformation($"Found path/row data file \"{predictionDataFilePath}\".")
+                logger.LogWarning($"Could not find the bootstrap file at \"{bootstrapFilePath}\".")
+                // log warning
+                // load prediction data file 
+                failwith "todo"
+            | false, false ->
+                // TODO: Add a way to fix this; link back somewhere to the repo
+                failwith $"Missing path/row data file, and no bootstrap file was found at \"{bootstrapFilePath}\"."
+        }
     
  
 /// <summary>
 /// Service class offering functionality related to scene predictions, as well as containing the 'current' state of
 /// predictions and how close we are to them. This enables us to notify users.
 /// </summary>
-type public PredictionService(serviceScopeFactory: IServiceScopeFactory) as this =
+and public PredictionService(serviceScopeFactory: IServiceScopeFactory) as this =
     
     let results = 25
     
@@ -243,7 +416,7 @@ type public PredictionService(serviceScopeFactory: IServiceScopeFactory) as this
     let usgsHttpClient = scope.ServiceProvider.GetRequiredService<UsgsHttpClient>()
     let usgsTokenService = scope.ServiceProvider.GetRequiredService<UsgsTokenService>()
     
-    let predictionsState = PredictionsState.Init(scope.ServiceProvider)
+    // let predictionsState = PredictionsState.Init(scope.ServiceProvider)
     
     
     interface IDisposable with
@@ -262,6 +435,43 @@ type public PredictionService(serviceScopeFactory: IServiceScopeFactory) as this
             let! predictedSatellite, publishDates = filterScenesBySatellite scenes
          
             return performCoreCalculation path row predictedSatellite publishDates   
+        }
+        
+    member internal this.GetPredictionAndNormalDistributionParameters(path: int, row: int) : TaskResult<Prediction * NormalDistributionParameters, string> =
+        taskResult {
+            let! authToken = usgsTokenService.GetToken()
+                             |> TaskResult.mapError _.Message 
+            usgsHttpClient.HttpClient.DefaultRequestHeaders.Add("X-Auth-Token", authToken)
+            
+            let! scenes = getScenes usgsHttpClient.HttpClient path row results
+                          |> TaskResult.mapError _.Message
+                          
+            // Perform normal distribution parameters estimation
+            let publishDatesUtcLandsat8 =
+                scenes
+                |> Array.filter (fun sceneDataTime -> sceneDataTime.Satellite = 8)
+                |> Array.map _.PublishDateUtc
+                
+            let publishDatesUtcLandsat9 =
+                scenes
+                |> Array.filter (fun sceneDataTime -> sceneDataTime.Satellite = 9)
+                |> Array.map _.PublishDateUtc
+                
+            let landsat8Prediction = performCoreCalculation path row 8 publishDatesUtcLandsat8
+            let landsat9Prediction = performCoreCalculation path row 9 publishDatesUtcLandsat9
+            let normalDistributionParameters = 
+                { Landsat8Mean = landsat8Prediction.PredictedTimeUtcWeightedMean
+                  Landsat8StdDev = landsat8Prediction.PredictedTimeUtcWeightedStdDev
+                  Landsat9Mean = landsat9Prediction.PredictedTimeUtcWeightedMean
+                  Landsat9StdDev  = landsat9Prediction.PredictedTimeUtcWeightedStdDev }
+                
+                
+            // Perform prediction
+            let! predictedSatellite, publishDates = filterScenesBySatellite scenes
+            let prediction = performCoreCalculation path row predictedSatellite publishDates   
+                
+                
+            return prediction, normalDistributionParameters
         }
 
     member internal this.GetNormalProbabilityDistributionMetrics(path: int, row: int) =
@@ -291,4 +501,45 @@ type public PredictionService(serviceScopeFactory: IServiceScopeFactory) as this
                   Landsat8StdDev = landsat8Prediction.PredictedTimeUtcWeightedStdDev
                   Landsat9Mean = landsat9Prediction.PredictedTimeUtcWeightedMean
                   Landsat9StdDev  = landsat9Prediction.PredictedTimeUtcWeightedStdDev }
+        }
+        
+    static member internal GetPredictionAndNormalDistributionParameters(usgsTokenService: UsgsTokenService, usgsHttpClient: UsgsHttpClient, path: int, row: int, results: int) : TaskResult<Prediction * NormalDistributionParameters, string> =
+        taskResult {
+            try
+                let! authToken = usgsTokenService.GetToken()
+                                 |> TaskResult.mapError _.Message 
+                usgsHttpClient.HttpClient.DefaultRequestHeaders.Add("X-Auth-Token", authToken)
+                
+                let! scenes = getScenes usgsHttpClient.HttpClient path row results
+                              |> TaskResult.mapError _.Message
+                              
+                // Perform normal distribution parameters estimation
+                let publishDatesUtcLandsat8 =
+                    scenes
+                    |> Array.filter (fun sceneDataTime -> sceneDataTime.Satellite = 8)
+                    |> Array.map _.PublishDateUtc
+                    
+                let publishDatesUtcLandsat9 =
+                    scenes
+                    |> Array.filter (fun sceneDataTime -> sceneDataTime.Satellite = 9)
+                    |> Array.map _.PublishDateUtc
+                    
+                let landsat8Prediction = performCoreCalculation path row 8 publishDatesUtcLandsat8
+                let landsat9Prediction = performCoreCalculation path row 9 publishDatesUtcLandsat9
+                let normalDistributionParameters = 
+                    { Landsat8Mean = landsat8Prediction.PredictedTimeUtcWeightedMean
+                      Landsat8StdDev = landsat8Prediction.PredictedTimeUtcWeightedStdDev
+                      Landsat9Mean = landsat9Prediction.PredictedTimeUtcWeightedMean
+                      Landsat9StdDev  = landsat9Prediction.PredictedTimeUtcWeightedStdDev }
+                    
+                    
+                // Perform prediction
+                let! predictedSatellite, publishDates = filterScenesBySatellite scenes
+                let prediction = performCoreCalculation path row predictedSatellite publishDates   
+                    
+                    
+                return prediction, normalDistributionParameters
+            with
+            | ex ->
+                return! (Error $"[GetPredictionAndNormalDistributionParameters] Failed with exception message \"{ex.Message}\".")
         }
