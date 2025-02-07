@@ -4,6 +4,7 @@ open System
 open System.Globalization
 open System.IO
 open System.Net.Http
+open System.Net.Http.Headers
 open System.Text
 open System.Text.Json
 open System.Text.Json.Nodes
@@ -266,13 +267,17 @@ type public PredictionsState() =
             // : TaskResult<Map<int * int, PredictionStateEntry>, string> =
             : Task<Map<int * int, PredictionStateEntry>> =
                 
-        let saveInterval = 1000
+        let saveInterval = 500
         let mutable map: Map<int * int, PredictionStateEntry> = Map.ofList []
+        let mutable mapCount = 0
         
-        for i in 0 .. pathRowArr.Length - 1 do
+        let offset = 2289
+        let start = 0 + offset
+        for i in start .. pathRowArr.Length - 1 do
             let pathRow = pathRowArr[i]
             let path = pathRow.Path
             let row = pathRow.Row
+            let percent = (float i) / (float pathRowArr.Length)
             
             taskResult {
                 try 
@@ -288,7 +293,7 @@ type public PredictionsState() =
                           Landsat9StdDev = normalDistributionParameters.Landsat9StdDev }
                     
                     // map <- map.Add ((path, row), predictionStateEntry)
-                    logger.LogInformation($"[{DateTime.Now}]\t({path}, {row})\t(landsat {predictionStateEntry.PredictedSatellite}) {predictionStateEntry.PredictedDateTimeUtc}")
+                    logger.LogInformation($"[{DateTime.Now}]\t({path}, {row}) ({percent:P2}%%)\t(landsat {predictionStateEntry.PredictedSatellite}) {predictionStateEntry.PredictedDateTimeUtc}")
                     return predictionStateEntry 
                 with
                 | ex ->
@@ -299,15 +304,16 @@ type public PredictionsState() =
             |> function
                 | Ok predictionStateEntry ->
                     map <- map.Add ((path, row), predictionStateEntry)
+                    mapCount <- mapCount + 1
                     
-                    if (i + 1) % saveInterval = 0 then
+                    if (mapCount + 1) % saveInterval = 0 then
                         let values = Seq.toArray map.Values
                         use writer = new StreamWriter(outputPath)
                         use csv = new CsvWriter(writer, CultureInfo.InvariantCulture)
                         csv.WriteRecords(values)
-                        logger.LogInformation($"[{DateTime.Now}]\tSaved {values.Length} entries, {((double i) / (float pathRowArr.Length))} done")
+                        logger.LogInformation($"[{DateTime.Now}]\tSaved {values.Length} entries, {percent:P2}%% done. Saved at i = {i}")
                 | Error errorMsg ->
-                    logger.LogWarning($"[{DateTime.Now}]\t({path}, {row})\tFAILED with message \"{errorMsg}\"")
+                    logger.LogWarning($"[{DateTime.Now}]\t({path}, {row}) ({percent:P2}%%)\tFAILED with message \"{errorMsg}\"")
                     
         Task.FromResult map
         
@@ -507,8 +513,14 @@ and public PredictionService(serviceScopeFactory: IServiceScopeFactory) as this 
         taskResult {
             try
                 let! authToken = usgsTokenService.GetToken()
-                                 |> TaskResult.mapError _.Message 
-                usgsHttpClient.HttpClient.DefaultRequestHeaders.Add("X-Auth-Token", authToken)
+                                 |> TaskResult.mapError _.Message
+                                 
+                // usgsHttpClient.HttpClient.DefaultRequestHeaders.Add("X-Auth-Token", authToken)
+                // usgsHttpClient.HttpClient.DefaultRequestHeaders.Authorization <- AuthenticationHeaderValue("X-Auth-Token", authToken)
+                
+                let authHeaderKey = "X-Auth-Token"
+                if not (usgsHttpClient.HttpClient.DefaultRequestHeaders.Contains(authHeaderKey)) then
+                    usgsHttpClient.HttpClient.DefaultRequestHeaders.Add("X-Auth-Token", authToken)
                 
                 let! scenes = getScenes usgsHttpClient.HttpClient path row results
                               |> TaskResult.mapError _.Message
