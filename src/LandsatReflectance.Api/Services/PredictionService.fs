@@ -316,55 +316,19 @@ type public PredictionsState() =
                     logger.LogWarning($"[{DateTime.Now}]\t({path}, {row}) ({percent:P2}%%)\tFAILED with message \"{errorMsg}\"")
                     
         Task.FromResult map
-        
-        (*
-        taskResult {
-            let mutable map: Map<int * int, PredictionStateEntry> = Map.ofList []
-            
-            for i in 0 .. pathRowArr.Length - 1 do
-                let pathRow = pathRowArr[i]
-                let path = pathRow.Path
-                let row = pathRow.Row
-                
-                try 
-                    let! prediction, normalDistributionParameters = renamethisthing path row
-                    let predictionStateEntry =
-                        { Path = path
-                          Row = row
-                          PredictedSatellite = prediction.PredictedSatellite
-                          PredictedDateTimeUtc = prediction.PredictedTimeUtc
-                          Landsat8Mean = normalDistributionParameters.Landsat8Mean
-                          Landsat8StdDev = normalDistributionParameters.Landsat8StdDev
-                          Landsat9Mean = normalDistributionParameters.Landsat9Mean
-                          Landsat9StdDev = normalDistributionParameters.Landsat9StdDev }
-                    
-                    map <- map.Add ((path, row), predictionStateEntry)
-                    logger.LogInformation($"[{DateTime.Now}]\t({path}, {row})\t(landsat {predictionStateEntry.PredictedSatellite}) {predictionStateEntry.PredictedDateTimeUtc}")
-                    
-                    if (i + 1) % saveInterval = 0 then
-                        let values = Seq.toArray map.Values
-                        use writer = new StreamWriter(outputPath)
-                        use csv = new CsvWriter(writer, CultureInfo.InvariantCulture)
-                        csv.WriteRecords(values)
-                        logger.LogInformation($"[{DateTime.Now}]\tSaved {values.Length} entries, {((double i) / (float pathRowArr.Length))} done")
-                with
-                | ex ->
-                    logger.LogWarning($"[{DateTime.Now}]\t({path}, {row})\tFAILED with message \"{ex.Message}\"")
-                
-            return map
-        }
-        *) 
     
-    static member Init(serviceProvider: IServiceProvider) =
+    member this.Init(serviceProvider: IServiceProvider) =
         taskResult {
             let logger = serviceProvider.GetRequiredService<ILogger<PredictionsState>>()
             
             let bootstrapFilePath = "./Data/bootstrapPathRowData.csv"
             let predictionDataFilePath = "./Data/predictionData.csv"
             
+            let predictionDataFileInfo = FileInfo(predictionDataFilePath)
+            
             match File.Exists(bootstrapFilePath), File.Exists(predictionDataFilePath) with
             | true, true ->
-                logger.LogInformation($"Found path/row data file \"{predictionDataFilePath}\".")
+                logger.LogInformation($"Found path/row data file \"{predictionDataFileInfo.FullName}\".")
                 // load prediction data file 
                 failwith "todo"
             | true, false ->

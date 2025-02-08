@@ -1,4 +1,6 @@
 open System
+open System.IO
+open System.Reflection
 open System.Text
 open System.Net.Http
 open System.Net.Http.Headers
@@ -10,13 +12,14 @@ open Microsoft.AspNetCore.Http.Json
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Logging
+open Microsoft.OpenApi.Models
+open Microsoft.Extensions.Options
+open Microsoft.IdentityModel.Tokens
 
 open Giraffe
 open Giraffe.EndpointRouting
 
-open Microsoft.OpenApi.Models
-open Microsoft.Extensions.Options
-open Microsoft.IdentityModel.Tokens
+open FsToolkit.ErrorHandling
 
 open LandsatReflectance.Api.Services.PredictionService
 open LandsatReflectance.Api.Extensions
@@ -116,6 +119,18 @@ let configureServices (services: IServiceCollection) =
     services.AddTransient<PredictionService>() |> ignore
     services.AddScoped<DbUserService>() |> ignore
     services.AddScoped<DbUserTargetService>() |> ignore
+    
+    
+    services.AddSingleton<PredictionsState>(fun serviceProvider ->
+        let predictionState = PredictionsState()
+        predictionState.Init(serviceProvider)
+        |> _.GetAwaiter()
+        |> _.GetResult()
+        |> function
+            | Ok _ -> predictionState
+            | Error _ -> failwith "Failed to initialize \"PredictionsState\""
+        ) |> ignore
+    
         
     services.AddGiraffe() |> ignore
     services.AddSingleton<Json.ISerializer>(fun serviceProvider ->
@@ -175,14 +190,23 @@ let configureApp (app: IApplicationBuilder) =
        
        
 [<EntryPoint>]
-let main args =
-    let builder = WebApplication.CreateBuilder(args)
+let main args  =
+    // let exeDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
+    let exeDir = AppContext.BaseDirectory
+    Directory.SetCurrentDirectory(exeDir)
+    let options = WebApplicationOptions(ContentRootPath = exeDir)
+    let builder = WebApplication.CreateBuilder(options)
+    builder.Host.UseContentRoot(exeDir) |> ignore
+    
     configureBuilder builder |> ignore
     
     let app = builder.Build()
     
     if app.Environment.IsDevelopment() then
         app.UseDeveloperExceptionPage() |> ignore
+        
+    // Force initialization of the predictions state at the start of the application.
+    app.Services.GetRequiredService<PredictionsState>() |> ignore
     
     configureApp app |> ignore
     
