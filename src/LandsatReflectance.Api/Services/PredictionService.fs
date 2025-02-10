@@ -1,13 +1,14 @@
 ﻿module LandsatReflectance.Api.Services.PredictionService
 
 open System
+open System.Diagnostics
 open System.Globalization
 open System.IO
 open System.Net.Http
-open System.Net.Http.Headers
 open System.Text
 open System.Text.Json
 open System.Text.Json.Nodes
+open System.Threading
 open System.Threading.Tasks
 open CsvHelper
 open CsvHelper.Configuration
@@ -31,7 +32,7 @@ type public Prediction =
     
 /// Type that represents a 'compressed' SceneData object, contains specific time information related to/or required to
 /// calculate a prediction.
-type private SceneDataTime =
+type internal SceneDataTime =
     { Path: int
       Row: int
       Satellite: int
@@ -75,7 +76,7 @@ and private filterMetadataInfo (sceneData: SceneData) =
     }
     
 [<AutoOpen>]
-module private PredictionServiceHelpers =
+module internal PredictionServiceHelpers =
     let createPredictionSceneSearchRequest
         (path: int)
         (row: int)
@@ -112,7 +113,7 @@ module private PredictionServiceHelpers =
         requestJsonObj.ToString()
         
     
-    let getScenes (httpClient: HttpClient) path row results =
+    let internal getScenes (httpClient: HttpClient) path row results =
         taskResult {
             let sceneSearchRequest = createPredictionSceneSearchRequest path row results
             use requestContent = new StringContent(sceneSearchRequest, Encoding.UTF8, "application/json")
@@ -256,22 +257,48 @@ type public PredictionStateEntry =
       Landsat9StdDev: TimeSpan }
         
     
+let bootstrapFilePath = "./Data/bootstrapPathRowData.csv"
+let predictionDataFilePath = "./Data/predictionData.csv"
     
 type public PredictionsState() =
     
-    static member Something(
+    let mutex = new Mutex()
+    let mutable predictionStateEntries: Map<int * int, PredictionStateEntry> = Map.ofArray [||]
+    let mutable isInitialized: bool = false
+    
+    member this.PredictionStateEntries
+        with get() =
+            mutex.WaitOne() |> ignore
+            try
+                predictionStateEntries
+            finally
+                mutex.ReleaseMutex()
+                
+        and set value =
+            mutex.WaitOne() |> ignore
+            try
+                predictionStateEntries <- value
+            finally
+                mutex.ReleaseMutex()
+                
+    member this.IsInitialized
+        with get() = isInitialized
+        and set value = isInitialized <- value
+                
+    
+    static member GetPredictionStateEntries(
         outputPath: string,
-        renamethisthing: int -> int -> TaskResult<Prediction * NormalDistributionParameters, string>,
+        getPredictionAndNormDistParams: int -> int -> TaskResult<Prediction * NormalDistributionParameters, string>,
         logger: ILogger,
         pathRowArr: PathRow array)
-            // : TaskResult<Map<int * int, PredictionStateEntry>, string> =
-            : Task<Map<int * int, PredictionStateEntry>> =
+        
+        : Task<Map<int * int, PredictionStateEntry>> =
                 
         let saveInterval = 500
         let mutable map: Map<int * int, PredictionStateEntry> = Map.ofList []
         let mutable mapCount = 0
         
-        let offset = 2289
+        let offset = 0
         let start = 0 + offset
         for i in start .. pathRowArr.Length - 1 do
             let pathRow = pathRowArr[i]
@@ -281,7 +308,7 @@ type public PredictionsState() =
             
             taskResult {
                 try 
-                    let! prediction, normalDistributionParameters = renamethisthing path row
+                    let! prediction, normalDistributionParameters = getPredictionAndNormDistParams path row
                     let predictionStateEntry =
                         { Path = path
                           Row = row
@@ -315,25 +342,57 @@ type public PredictionsState() =
                 | Error errorMsg ->
                     logger.LogWarning($"[{DateTime.Now}]\t({path}, {row}) ({percent:P2}%%)\tFAILED with message \"{errorMsg}\"")
                     
+                    
+        let values = Seq.toArray map.Values
+        use writer = new StreamWriter(outputPath)
+        use csv = new CsvWriter(writer, CultureInfo.InvariantCulture)
+        csv.WriteRecords(values)
+        
+        logger.LogInformation($"[{DateTime.Now}]\tSaved {values.Length} entries.")
+        logger.LogInformation($"[{DateTime.Now}]\tFinished initialization")
+        
         Task.FromResult map
     
     member this.Init(serviceProvider: IServiceProvider) =
         taskResult {
             let logger = serviceProvider.GetRequiredService<ILogger<PredictionsState>>()
             
-            let bootstrapFilePath = "./Data/bootstrapPathRowData.csv"
-            let predictionDataFilePath = "./Data/predictionData.csv"
             
+            let bootstrapFileInfo = FileInfo(bootstrapFilePath)
             let predictionDataFileInfo = FileInfo(predictionDataFilePath)
             
             match File.Exists(bootstrapFilePath), File.Exists(predictionDataFilePath) with
             | true, true ->
                 logger.LogInformation($"Found path/row data file \"{predictionDataFileInfo.FullName}\".")
-                // load prediction data file 
-                failwith "todo"
+                
+                let stopwatch = Stopwatch()
+                stopwatch.Start()
+                
+                let csvReaderConfig = CsvConfiguration(CultureInfo.InvariantCulture)
+                csvReaderConfig.PrepareHeaderForMatch <- _.Header.ToLower()
+                csvReaderConfig.HeaderValidated <- null
+                csvReaderConfig.MissingFieldFound <- null
+                
+                use reader = new StreamReader(predictionDataFilePath)
+                use csv = new CsvReader(reader, csvReaderConfig)
+                let predictionStateEntriesMap =
+                    csv.GetRecords<PredictionStateEntry>()
+                    |> Seq.toArray
+                    |> Array.map (fun pse -> ((pse.Path, pse.Row), pse))
+                    |> Map.ofArray
+                this.PredictionStateEntries <- predictionStateEntriesMap
+                this.IsInitialized <- true
+                
+                stopwatch.Stop()
+                logger.LogInformation($"Successfully initialized \"PredictionsState\" in {stopwatch.Elapsed}")
+                
             | true, false ->
-                logger.LogInformation($"Found bootstrap file \"{bootstrapFilePath}\", path/row data file missing at \"{predictionDataFilePath}\".")
+                logger.LogInformation($"Found bootstrap file \"{bootstrapFileInfo.FullName}\".")
+                logger.LogInformation($"Path/row data file could not be found at \"{predictionDataFileInfo.FullName}\".")
                 logger.LogInformation("Initializing path/row data file.")
+                
+                let stopwatch = Stopwatch()
+                stopwatch.Start()
                 
                 let csvReaderConfig = CsvConfiguration(CultureInfo.InvariantCulture)
                 csvReaderConfig.PrepareHeaderForMatch <- _.Header.ToLower()
@@ -349,25 +408,37 @@ type public PredictionsState() =
                 let usgsTokenService = serviceProvider.GetRequiredService<UsgsTokenService>()
                 let usgsHttpClient = serviceProvider.GetRequiredService<UsgsHttpClient>()
                 let partialApplication = (fun path row -> PredictionService.GetPredictionAndNormalDistributionParameters(usgsTokenService, usgsHttpClient, path, row, 10))
-                let! map = PredictionsState.Something(predictionDataFilePath, partialApplication, logger, pathRows)
+                let! map = PredictionsState.GetPredictionStateEntries(predictionDataFilePath, partialApplication, logger, pathRows)
+                this.PredictionStateEntries <- map
+                this.IsInitialized <- true
                 
-                let values = Seq.toArray map.Values
-                use writer = new StreamWriter(predictionDataFilePath)
-                use csv = new CsvWriter(writer, CultureInfo.InvariantCulture)
-                csv.WriteRecords(values)
+                stopwatch.Stop()
+                logger.LogWarning($"Successfully initialized \"PredictionsState\" in {stopwatch.Elapsed}")
                 
-                logger.LogInformation($"[{DateTime.Now}]\tSaved {values.Length} entries.")
-                logger.LogInformation($"[{DateTime.Now}]\tFinished initialization")
-                
-                
-                // init data file from bootstrap
-                failwith "todo"
             | false, true ->
                 logger.LogInformation($"Found path/row data file \"{predictionDataFilePath}\".")
                 logger.LogWarning($"Could not find the bootstrap file at \"{bootstrapFilePath}\".")
-                // log warning
-                // load prediction data file 
-                failwith "todo"
+                
+                let stopwatch = Stopwatch()
+                stopwatch.Start()
+                
+                let csvReaderConfig = CsvConfiguration(CultureInfo.InvariantCulture)
+                csvReaderConfig.PrepareHeaderForMatch <- _.Header.ToLower()
+                csvReaderConfig.HeaderValidated <- null
+                csvReaderConfig.MissingFieldFound <- null
+                
+                use reader = new StreamReader(predictionDataFilePath)
+                use csv = new CsvReader(reader, csvReaderConfig)
+                let predictionStateEntriesMap =
+                    csv.GetRecords<PredictionStateEntry>()
+                    |> Seq.toArray
+                    |> Array.map (fun pse -> ((pse.Path, pse.Row), pse))
+                    |> Map.ofArray
+                this.PredictionStateEntries <- predictionStateEntriesMap
+                this.IsInitialized <- true
+                
+                stopwatch.Stop()
+                logger.LogWarning($"Successfully initialized \"PredictionsState\" in {stopwatch.Elapsed}")
             | false, false ->
                 // TODO: Add a way to fix this; link back somewhere to the repo
                 failwith $"Missing path/row data file, and no bootstrap file was found at \"{bootstrapFilePath}\"."

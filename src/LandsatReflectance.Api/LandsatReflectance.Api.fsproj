@@ -27,6 +27,7 @@
         <Compile Include="Services\DbUserService.fs" />
         <Compile Include="Services\DbUserTargetService.fs" />
         <Compile Include="Services\PredictionService.fs" />
+        <Compile Include="Services\Hosted\PredictionCheckingService.fs" />
         <Compile Include="Middleware\RequestIdMiddleware.fs" />
         <Compile Include="Middleware\GlobalErrorHandlingMiddleware.fs" />
         <Compile Include="Handlers\SceneHandler.fs" />
@@ -43,7 +44,9 @@
         <Content Include="Data\bootstrapPathRowData.csv">
           <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
-        <Content Include="Data\predictionData.csv" />
+        <Content Include="Data\predictionData.csv">
+          <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
     </ItemGroup>
 
     <ItemGroup>

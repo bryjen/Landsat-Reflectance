@@ -4,6 +4,7 @@ open System.Reflection
 open System.Text
 open System.Net.Http
 open System.Net.Http.Headers
+open FsLandsatApi.Services.Hosted.PredictionCheckingService
 open FsLandsatApi.Utils
 open Microsoft.AspNetCore.Authentication.JwtBearer
 open Microsoft.AspNetCore.Builder
@@ -131,6 +132,9 @@ let configureServices (services: IServiceCollection) =
             | Error _ -> failwith "Failed to initialize \"PredictionsState\""
         ) |> ignore
     
+    
+    services.AddHostedService<PredictionCheckingService>() |> ignore
+    
         
     services.AddGiraffe() |> ignore
     services.AddSingleton<Json.ISerializer>(fun serviceProvider ->
@@ -191,7 +195,6 @@ let configureApp (app: IApplicationBuilder) =
        
 [<EntryPoint>]
 let main args  =
-    // let exeDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
     let exeDir = AppContext.BaseDirectory
     Directory.SetCurrentDirectory(exeDir)
     let options = WebApplicationOptions(ContentRootPath = exeDir)
@@ -206,6 +209,9 @@ let main args  =
         app.UseDeveloperExceptionPage() |> ignore
         
     // Force initialization of the predictions state at the start of the application.
+    let logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup")
+    logger.LogInformation($"Working directory: \"{DirectoryInfo(exeDir).FullName}\"")
+    
     app.Services.GetRequiredService<PredictionsState>() |> ignore
     
     configureApp app |> ignore
